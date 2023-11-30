@@ -1,11 +1,11 @@
-from collections.abc import Callable
 from functools import wraps
 from pathlib import Path
+from typing import Callable, ContextManager
 
 from httpretty import HTTPretty
 
 
-def replay(func: Callable = None, *, directory="recordings"):
+def replay(func: Callable = None, *, directory="recordings") -> Callable:
     def inner(func: Callable):
         path = _get_recording_path(func, directory)
 
@@ -23,7 +23,7 @@ def replay(func: Callable = None, *, directory="recordings"):
     return inner
 
 
-def _get_recording_path(func, subdir):
+def _get_recording_path(func, subdir) -> Path:
     qualname_split = func.__qualname__.split(".")
     try:
         split_index = qualname_split.index("<locals>") + 1
@@ -34,8 +34,8 @@ def _get_recording_path(func, subdir):
     return Path(func.__code__.co_filename).parent / subdir / f"{qualname}.json"
 
 
-def _get_recording_context(path):
+def _get_recording_context(path) -> ContextManager:
     if path.exists():
-        return HTTPretty.playback(path, allow_net_connect=False, verbose=True)
+        return HTTPretty.playback(path, allow_net_connect=False)
     else:
-        return HTTPretty.record(path, allow_net_connect=True, verbose=True)
+        return HTTPretty.record(path, allow_net_connect=True)
