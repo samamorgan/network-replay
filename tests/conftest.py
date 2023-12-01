@@ -16,6 +16,6 @@ def pytest_runtest_call(item: pytest.Item) -> None:
         return
 
     try:
-        (base_path / "recordings" / f"{item.name}.json").resolve(strict=True)
+        (base_path / "recordings" / f"{item.location[-1]}.json").resolve(strict=True)
     except FileNotFoundError as exc:
         pytest.fail(str(exc))
