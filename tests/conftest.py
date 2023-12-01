@@ -9,7 +9,7 @@ base_path = Path(__file__).parent
 def pytest_runtest_call(item: pytest.Item) -> None:
     output = yield
 
-    if item.get_closest_marker("skip_recording_check"):
+    if item.get_closest_marker("recording_check") is None:
         return
 
     if output.excinfo is not None:
