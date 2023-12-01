@@ -20,6 +20,20 @@ def test_get():
 
 @replay
 @pytest.mark.recording_check
+def test_head():
+    response = requests.head("https://httpbin.org/json")
+    assert response.status_code == 200
+
+
+@replay
+@pytest.mark.recording_check
+def test_options():
+    response = requests.options("https://httpbin.org/json")
+    assert response.status_code == 200
+
+
+@replay
+@pytest.mark.recording_check
 def test_patch():
     response = requests.patch("https://httpbin.org/patch")
     assert response.status_code == 200
