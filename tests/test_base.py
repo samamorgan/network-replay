@@ -12,6 +12,7 @@ base_path = Path(__file__).parent
     "directory",
     ["recordings", "cassettes"],
 )
+@pytest.mark.skip_recording_check
 def test_method_replay_path(directory):
     @replay(directory=directory)
     def get_200():
@@ -22,6 +23,7 @@ def test_method_replay_path(directory):
     assert (base_path / directory / "get_200.json").exists()
 
 
+@pytest.mark.skip_recording_check
 def test_class_method_replay_path():
     class Requester:
         @replay

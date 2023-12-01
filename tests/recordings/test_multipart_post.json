@@ -1,0 +1,32 @@
+[
+    {
+        "request": {
+            "uri": "https://httpbin.org/anything",
+            "method": "POST",
+            "headers": {
+                "Host": "httpbin.org",
+                "User-Agent": "python-requests/2.31.0",
+                "Accept-Encoding": "gzip, deflate",
+                "Accept": "*/*",
+                "Connection": "keep-alive",
+                "Content-Length": "148",
+                "Content-Type": "multipart/form-data; boundary=dce7974b7c31b7950aa38d73d600357a"
+            },
+            "body": "--dce7974b7c31b7950aa38d73d600357a\r\nContent-Disposition: form-data; name=\"file\"; filename=\"test.txt\"\r\n\r\ntest\r\n--dce7974b7c31b7950aa38d73d600357a--\r\n",
+            "querystring": {}
+        },
+        "response": {
+            "status": 200,
+            "body": "{\n  \"args\": {}, \n  \"data\": \"\", \n  \"files\": {\n    \"file\": \"test\"\n  }, \n  \"form\": {}, \n  \"headers\": {\n    \"Accept\": \"*/*\", \n    \"Accept-Encoding\": \"gzip, deflate\", \n    \"Content-Length\": \"148\", \n    \"Content-Type\": \"multipart/form-data; boundary=dce7974b7c31b7950aa38d73d600357a\", \n    \"Host\": \"httpbin.org\", \n    \"User-Agent\": \"python-requests/2.31.0\", \n    \"X-Amzn-Trace-Id\": \"Root=1-65693132-295c448546a6115062891f27\"\n  }, \n  \"json\": null, \n  \"method\": \"POST\", \n  \"origin\": \"71.212.72.16\", \n  \"url\": \"https://httpbin.org/anything\"\n}\n",
+            "headers": {
+                "Date": "Fri, 01 Dec 2023 01:04:50 GMT",
+                "Content-Type": "application/json",
+                "Content-Length": "534",
+                "Connection": "keep-alive",
+                "Server": "gunicorn/19.9.0",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Credentials": "true"
+            }
+        }
+    }
+]
