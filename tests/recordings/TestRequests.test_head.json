@@ -2,7 +2,7 @@
   {
     "request": {
       "uri": "https://httpbin.org/status/200",
-      "method": "GET",
+      "method": "HEAD",
       "headers": {
         "Host": "httpbin.org",
         "User-Agent": "python-requests/2.31.0",
@@ -17,7 +17,7 @@
       "status": 200,
       "body": "",
       "headers": {
-        "Date": "Sun, 03 Dec 2023 21:00:34 GMT",
+        "Date": "Sun, 03 Dec 2023 21:00:36 GMT",
         "Content-Type": "text/html; charset=utf-8",
         "Content-Length": "0",
         "Connection": "keep-alive",
