@@ -17,10 +17,10 @@
       "status": 200,
       "body": "",
       "headers": {
-        "Date": "Sun, 03 Dec 2023 21:00:34 GMT",
+        "Date": "Mon, 04 Dec 2023 20:38:30 GMT",
         "Content-Type": "text/html; charset=utf-8",
         "Content-Length": "0",
-        "Connection": "keep-alive",
+        "Connection": "close",
         "Server": "gunicorn/19.9.0",
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Credentials": "true"

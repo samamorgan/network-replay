@@ -14,11 +14,11 @@
     },
     "response": {
       "status": 200,
-      "body": "{\n  \"args\": {}, \n  \"data\": \"\", \n  \"files\": {}, \n  \"form\": {}, \n  \"headers\": {\n    \"Accept-Encoding\": \"identity\", \n    \"Content-Length\": \"0\", \n    \"Host\": \"httpbin.org\", \n    \"User-Agent\": \"Python-urllib/3.10\", \n    \"X-Amzn-Trace-Id\": \"Root=1-656cec76-517c95e16256fb2b261c2593\"\n  }, \n  \"json\": null, \n  \"origin\": \"71.212.72.16\", \n  \"url\": \"https://httpbin.org/delete\"\n}\n",
+      "body": "{\n  \"args\": {}, \n  \"data\": \"\", \n  \"files\": {}, \n  \"form\": {}, \n  \"headers\": {\n    \"Accept-Encoding\": \"identity\", \n    \"Host\": \"httpbin.org\", \n    \"User-Agent\": \"Python-urllib/3.10\", \n    \"X-Amzn-Trace-Id\": \"Root=1-656e38ca-6d2852eb79e0ede84936444b\"\n  }, \n  \"json\": null, \n  \"origin\": \"71.212.72.16\", \n  \"url\": \"https://httpbin.org/delete\"\n}\n",
       "headers": {
-        "Date": "Sun, 03 Dec 2023 21:00:38 GMT",
+        "Date": "Mon, 04 Dec 2023 20:38:34 GMT",
         "Content-Type": "application/json",
-        "Content-Length": "369",
+        "Content-Length": "341",
         "Connection": "close",
         "Server": "gunicorn/19.9.0",
         "Access-Control-Allow-Origin": "*",

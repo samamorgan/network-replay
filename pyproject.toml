@@ -28,6 +28,8 @@ optional = true
 pytest = "^7.4.3"
 pytest-cov = "^4.1.0"
 pillow = "^10.1.0"
+httpx = "^0.25.2"
+urllib3 = "^2.1.0"
 
 [build-system]
 requires = ["poetry-core"]

@@ -1,0 +1,28 @@
+[
+  {
+    "request": {
+      "uri": "https://httpbin.org/get",
+      "method": "GET",
+      "headers": {
+        "Host": "httpbin.org",
+        "Accept-Encoding": "identity",
+        "User-Agent": "python-urllib3/2.1.0"
+      },
+      "body": "",
+      "querystring": {}
+    },
+    "response": {
+      "status": 200,
+      "body": "{\n  \"args\": {}, \n  \"headers\": {\n    \"Accept-Encoding\": \"identity\", \n    \"Host\": \"httpbin.org\", \n    \"User-Agent\": \"python-urllib3/2.1.0\", \n    \"X-Amzn-Trace-Id\": \"Root=1-656e3b21-31d12f7046908e777fdadf88\"\n  }, \n  \"origin\": \"71.212.72.16\", \n  \"url\": \"https://httpbin.org/get\"\n}\n",
+      "headers": {
+        "Date": "Mon, 04 Dec 2023 20:48:33 GMT",
+        "Content-Type": "application/json",
+        "Content-Length": "277",
+        "Connection": "close",
+        "Server": "gunicorn/19.9.0",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Credentials": "true"
+      }
+    }
+  }
+]

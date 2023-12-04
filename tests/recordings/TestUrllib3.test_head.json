@@ -2,13 +2,11 @@
   {
     "request": {
       "uri": "https://httpbin.org/status/200",
-      "method": "GET",
+      "method": "HEAD",
       "headers": {
         "Host": "httpbin.org",
-        "User-Agent": "python-requests/2.31.0",
-        "Accept-Encoding": "gzip, deflate",
-        "Accept": "*/*",
-        "Connection": "keep-alive"
+        "Accept-Encoding": "identity",
+        "User-Agent": "python-urllib3/2.1.0"
       },
       "body": "",
       "querystring": {}
@@ -17,10 +15,10 @@
       "status": 200,
       "body": "",
       "headers": {
-        "Date": "Sun, 03 Dec 2023 21:00:35 GMT",
+        "Date": "Mon, 04 Dec 2023 20:48:33 GMT",
         "Content-Type": "text/html; charset=utf-8",
         "Content-Length": "0",
-        "Connection": "keep-alive",
+        "Connection": "close",
         "Server": "gunicorn/19.9.0",
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Credentials": "true"

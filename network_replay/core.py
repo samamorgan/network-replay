@@ -1,10 +1,10 @@
 import json
 import logging
 from ast import literal_eval
-from contextlib import suppress
 from functools import wraps
 from pathlib import Path
 from typing import Callable
+from urllib.request import Request, urlopen
 
 from httpretty.core import MULTILINE_ANY_REGEX, httpretty
 from urllib3 import PoolManager
@@ -104,10 +104,14 @@ class ReplayManager(httpretty):
     def _record_request(self, request, uri, headers):
         self.disable()
 
-        kwargs = {}
-        kwargs.setdefault("body", request.body)
-        kwargs.setdefault("headers", dict(request.headers))
-        response = self.http.request(request.method, uri, **kwargs)
+        _request = Request(
+            uri,
+            data=request.body or None,
+            headers=request.headers,
+            method=request.method,
+        )
+        response = urlopen(_request)
+        response_body = response.read()
 
         payload = {}
         payload["request"] = {
@@ -119,14 +123,14 @@ class ReplayManager(httpretty):
         }
         payload["response"] = {
             "status": response.status,
-            "body": self._decode_body(response.data),
+            "body": self._decode_body(response_body),
             "headers": dict(response.headers),
         }
         self.calls.append(payload)
 
         self.enable(allow_net_connect=True)
 
-        return response.status, response.headers, response.data
+        return response.status, response.headers, response_body
 
     def _decode_body(self, body: bytes) -> str:
         try:

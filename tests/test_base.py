@@ -20,7 +20,7 @@ def _get_200():
 class TestReplayDecorator:
     @pytest.mark.parametrize(
         "directory",
-        ["recordings", "cassettes"],
+        ["recordings", "archive"],
     )
     def test_method_replay_path(self, directory):
         @replay(directory=directory)
@@ -48,7 +48,7 @@ class TestReplayDecorator:
         assert path == base_path / "recordings" / "_get_200.json"
 
         def get_200():
-            return _get_200()
+            pass
 
         path = _recording_path(get_200, "recordings")
         assert "<locals>" in get_200.__qualname__

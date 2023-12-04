@@ -14,11 +14,11 @@
     },
     "response": {
       "status": 200,
-      "body": "{\n  \"args\": {}, \n  \"headers\": {\n    \"Accept-Encoding\": \"identity\", \n    \"Content-Length\": \"0\", \n    \"Host\": \"httpbin.org\", \n    \"User-Agent\": \"Python-urllib/3.10\", \n    \"X-Amzn-Trace-Id\": \"Root=1-656cec77-1542f42f7eb04d9d1badb667\"\n  }, \n  \"origin\": \"71.212.72.16\", \n  \"url\": \"https://httpbin.org/get\"\n}\n",
+      "body": "{\n  \"args\": {}, \n  \"headers\": {\n    \"Accept-Encoding\": \"identity\", \n    \"Host\": \"httpbin.org\", \n    \"User-Agent\": \"Python-urllib/3.10\", \n    \"X-Amzn-Trace-Id\": \"Root=1-656e38cb-58d301ad79e65ca92c32653a\"\n  }, \n  \"origin\": \"71.212.72.16\", \n  \"url\": \"https://httpbin.org/get\"\n}\n",
       "headers": {
-        "Date": "Sun, 03 Dec 2023 21:00:39 GMT",
+        "Date": "Mon, 04 Dec 2023 20:38:35 GMT",
         "Content-Type": "application/json",
-        "Content-Length": "303",
+        "Content-Length": "275",
         "Connection": "close",
         "Server": "gunicorn/19.9.0",
         "Access-Control-Allow-Origin": "*",

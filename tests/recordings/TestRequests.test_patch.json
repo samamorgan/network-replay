@@ -16,12 +16,12 @@
     },
     "response": {
       "status": 200,
-      "body": "{\n  \"args\": {}, \n  \"data\": \"\", \n  \"files\": {}, \n  \"form\": {}, \n  \"headers\": {\n    \"Accept\": \"*/*\", \n    \"Accept-Encoding\": \"gzip, deflate\", \n    \"Content-Length\": \"0\", \n    \"Host\": \"httpbin.org\", \n    \"User-Agent\": \"python-requests/2.31.0\", \n    \"X-Amzn-Trace-Id\": \"Root=1-656cec75-7fecd12425bb5499258ef6bb\"\n  }, \n  \"json\": null, \n  \"origin\": \"71.212.72.16\", \n  \"url\": \"https://httpbin.org/patch\"\n}\n",
+      "body": "{\n  \"args\": {}, \n  \"data\": \"\", \n  \"files\": {}, \n  \"form\": {}, \n  \"headers\": {\n    \"Accept\": \"*/*\", \n    \"Accept-Encoding\": \"gzip, deflate\", \n    \"Content-Length\": \"0\", \n    \"Host\": \"httpbin.org\", \n    \"User-Agent\": \"python-requests/2.31.0\", \n    \"X-Amzn-Trace-Id\": \"Root=1-656e38c9-507dccff792239a762416b28\"\n  }, \n  \"json\": null, \n  \"origin\": \"71.212.72.16\", \n  \"url\": \"https://httpbin.org/patch\"\n}\n",
       "headers": {
-        "Date": "Sun, 03 Dec 2023 21:00:37 GMT",
+        "Date": "Mon, 04 Dec 2023 20:38:33 GMT",
         "Content-Type": "application/json",
         "Content-Length": "399",
-        "Connection": "keep-alive",
+        "Connection": "close",
         "Server": "gunicorn/19.9.0",
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Credentials": "true"

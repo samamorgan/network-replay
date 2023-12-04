@@ -1,0 +1,28 @@
+[
+  {
+    "request": {
+      "uri": "https://httpbin.org/delete",
+      "method": "DELETE",
+      "headers": {
+        "Host": "httpbin.org",
+        "Accept-Encoding": "identity",
+        "User-Agent": "python-urllib3/2.1.0"
+      },
+      "body": "",
+      "querystring": {}
+    },
+    "response": {
+      "status": 200,
+      "body": "{\n  \"args\": {}, \n  \"data\": \"\", \n  \"files\": {}, \n  \"form\": {}, \n  \"headers\": {\n    \"Accept-Encoding\": \"identity\", \n    \"Host\": \"httpbin.org\", \n    \"User-Agent\": \"python-urllib3/2.1.0\", \n    \"X-Amzn-Trace-Id\": \"Root=1-656e3b20-5a5b310040c2efdc7cd46fad\"\n  }, \n  \"json\": null, \n  \"origin\": \"71.212.72.16\", \n  \"url\": \"https://httpbin.org/delete\"\n}\n",
+      "headers": {
+        "Date": "Mon, 04 Dec 2023 20:48:32 GMT",
+        "Content-Type": "application/json",
+        "Content-Length": "343",
+        "Connection": "close",
+        "Server": "gunicorn/19.9.0",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Credentials": "true"
+      }
+    }
+  }
+]

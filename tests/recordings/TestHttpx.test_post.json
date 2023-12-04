@@ -1,0 +1,31 @@
+[
+  {
+    "request": {
+      "uri": "https://httpbin.org/post",
+      "method": "POST",
+      "headers": {
+        "Host": "httpbin.org",
+        "Content-Length": "0",
+        "Accept": "*/*",
+        "Accept-Encoding": "gzip, deflate",
+        "Connection": "keep-alive",
+        "User-Agent": "python-httpx/0.25.2"
+      },
+      "body": "",
+      "querystring": {}
+    },
+    "response": {
+      "status": 200,
+      "body": "{\n  \"args\": {}, \n  \"data\": \"\", \n  \"files\": {}, \n  \"form\": {}, \n  \"headers\": {\n    \"Accept\": \"*/*\", \n    \"Accept-Encoding\": \"gzip, deflate\", \n    \"Content-Length\": \"0\", \n    \"Host\": \"httpbin.org\", \n    \"User-Agent\": \"python-httpx/0.25.2\", \n    \"X-Amzn-Trace-Id\": \"Root=1-656e399e-6ce607c2493c3e6e464eb810\"\n  }, \n  \"json\": null, \n  \"origin\": \"71.212.72.16\", \n  \"url\": \"https://httpbin.org/post\"\n}\n",
+      "headers": {
+        "Date": "Mon, 04 Dec 2023 20:42:06 GMT",
+        "Content-Type": "application/json",
+        "Content-Length": "395",
+        "Connection": "close",
+        "Server": "gunicorn/19.9.0",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Credentials": "true"
+      }
+    }
+  }
+]
