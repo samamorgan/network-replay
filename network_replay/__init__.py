@@ -1,3 +1,6 @@
-from .core import replay
+from .core import ReplayManager, replay
 
-__all__ = ["replay"]
+__all__ = [
+    "ReplayManager",
+    "replay",
+]

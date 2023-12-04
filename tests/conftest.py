@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from network_replay.core import Recorder
+from network_replay.core import ReplayManager
 
 RECORDING_PATH = pytest.StashKey[Path]()
 
@@ -14,7 +14,7 @@ def pytest_runtest_call(item: pytest.Item) -> None:
     if not item.get_closest_marker("network_replay"):
         return
 
-    Recorder.disable()
+    ReplayManager.disable()
     if output.excinfo is not None:
         return
 
@@ -50,7 +50,5 @@ def recording_path(request, recording_dir) -> Path:
 
 @pytest.fixture
 def network_replay(recording_path):
-    with Recorder(recording_path) as recorder:
+    with ReplayManager(recording_path) as recorder:
         yield recorder
-
-    pass

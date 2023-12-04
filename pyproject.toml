@@ -27,6 +27,7 @@ optional = true
 [tool.poetry.group.test.dependencies]
 pytest = "^7.4.3"
 pytest-cov = "^4.1.0"
+pillow = "^10.1.0"
 
 [build-system]
 requires = ["poetry-core"]
@@ -34,3 +35,12 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.pytest]
 testpaths = "tests"
+
+[tool.pytest.ini_options]
+markers = [
+    "network_replay: Records network interactions and verifies them on replay",
+]
+
+[tool.coverage.run]
+branch = true
+omit = ["tests/*"]
