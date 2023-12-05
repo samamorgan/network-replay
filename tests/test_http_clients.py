@@ -7,6 +7,8 @@ import requests
 import urllib3
 from PIL import Image
 
+HTTPBIN = "https://httpbin.org"
+
 
 class BaseClientTest:
     status_code_property = ""
@@ -22,13 +24,13 @@ class BaseClientTest:
     @pytest.mark.parametrize(
         "method,url",
         [
-            ("DELETE", "https://httpbin.org/delete"),
-            ("GET", "https://httpbin.org/get"),
-            ("HEAD", "https://httpbin.org/status/200"),
-            ("OPTIONS", "https://httpbin.org/status/200"),
-            ("PATCH", "https://httpbin.org/patch"),
-            ("POST", "https://httpbin.org/post"),
-            ("PUT", "https://httpbin.org/put"),
+            ("DELETE", f"{HTTPBIN}/delete"),
+            ("GET", f"{HTTPBIN}/get"),
+            ("HEAD", f"{HTTPBIN}/status/200"),
+            ("OPTIONS", f"{HTTPBIN}/status/200"),
+            ("PATCH", f"{HTTPBIN}/patch"),
+            ("POST", f"{HTTPBIN}/post"),
+            ("PUT", f"{HTTPBIN}/put"),
         ],
         ids=["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"],
     )
@@ -39,7 +41,7 @@ class BaseClientTest:
     @pytest.mark.network_replay
     def test_image_get(self):
         response = self.make_request(
-            "GET", "https://httpbin.org/image/jpeg", **self.image_get_kwargs
+            "GET", f"{HTTPBIN}/image/jpeg", **self.image_get_kwargs
         )
         assert getattr(response, self.status_code_property) == HTTPStatus.OK
 
@@ -50,7 +52,7 @@ class BaseClientTest:
     @pytest.mark.network_replay
     def test_multipart_post(self):
         response = self.make_request(
-            "POST", "https://httpbin.org/anything", files={"file": ("test.txt", "test")}
+            "POST", f"{HTTPBIN}/anything", files={"file": ("test.txt", "test")}
         )
         assert getattr(response, self.status_code_property) == HTTPStatus.OK
 
@@ -96,8 +98,6 @@ class TestUrllib3(BaseClientTest):
     @pytest.mark.network_replay
     def test_multipart_post(self):
         response = self.make_request(
-            "POST",
-            "https://httpbin.org/anything",
-            fields={"file": ("test.txt", "test")},
+            "POST", f"{HTTPBIN}/anything", fields={"file": ("test.txt", "test")}
         )
         assert getattr(response, self.status_code_property) == HTTPStatus.OK
