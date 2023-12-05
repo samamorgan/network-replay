@@ -1,6 +1,7 @@
 import json
 from http import HTTPStatus
 from pathlib import Path
+from socket import _GLOBAL_DEFAULT_TIMEOUT
 from tempfile import gettempdir
 
 import pytest
@@ -72,6 +73,7 @@ class TestReplayManager:
         request.body = b""
         request.method = "GET"
         request.querystring = {}
+        request.timeout = _GLOBAL_DEFAULT_TIMEOUT
 
         return request
 
@@ -106,19 +108,16 @@ class TestReplayManager:
     def test___init__(self, path, manager):
         assert manager.path == path
         assert manager.record_on_error is False
-        assert manager.calls == []
-        assert manager.http is None
+        assert manager._calls == []
 
     @pytest.mark.usefixtures("recording")
     def test___enter__replay(self, manager):
         with manager as m:
-            assert m.http is None
             assert m.allow_net_connect is False
             assert m._is_enabled is True
 
     def test___enter__record(self, manager):
         with manager as m:
-            assert isinstance(m.http, PoolManager)
             assert m.allow_net_connect is True
             assert m._is_enabled is True
 
@@ -130,7 +129,7 @@ class TestReplayManager:
 
     def test___exit___record(self, manager, path):
         with manager as m:
-            m.calls.append("test")
+            m._calls.append("test")
 
         assert m._is_enabled is False
         assert manager.path.exists()

@@ -2,11 +2,12 @@
   {
     "request": {
       "uri": "https://httpbin.org/status/200",
-      "method": "HEAD",
+      "method": "OPTIONS",
       "headers": {
-        "Host": "httpbin.org",
         "Accept-Encoding": "identity",
-        "User-Agent": "python-urllib3/2.1.0"
+        "Host": "httpbin.org",
+        "User-Agent": "Python-urllib/3.10",
+        "Connection": "close"
       },
       "body": "",
       "querystring": {}
@@ -15,13 +16,16 @@
       "status": 200,
       "body": "",
       "headers": {
-        "Date": "Mon, 04 Dec 2023 20:48:33 GMT",
+        "Date": "Tue, 05 Dec 2023 00:17:44 GMT",
         "Content-Type": "text/html; charset=utf-8",
         "Content-Length": "0",
         "Connection": "close",
         "Server": "gunicorn/19.9.0",
+        "Allow": "OPTIONS, POST, GET, HEAD, PATCH, DELETE, PUT, TRACE",
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Credentials": "true"
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
+        "Access-Control-Max-Age": "3600"
       }
     }
   }

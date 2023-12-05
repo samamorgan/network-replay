@@ -13,9 +13,9 @@
     },
     "response": {
       "status": 200,
-      "body": "{\n  \"args\": {}, \n  \"headers\": {\n    \"Accept-Encoding\": \"identity\", \n    \"Host\": \"httpbin.org\", \n    \"User-Agent\": \"python-urllib3/2.1.0\", \n    \"X-Amzn-Trace-Id\": \"Root=1-656e3b21-31d12f7046908e777fdadf88\"\n  }, \n  \"origin\": \"71.212.72.16\", \n  \"url\": \"https://httpbin.org/get\"\n}\n",
+      "body": "{\n  \"args\": {}, \n  \"headers\": {\n    \"Accept-Encoding\": \"identity\", \n    \"Host\": \"httpbin.org\", \n    \"User-Agent\": \"python-urllib3/2.1.0\", \n    \"X-Amzn-Trace-Id\": \"Root=1-656e6c2a-732c794948c0ab1f49b9e274\"\n  }, \n  \"origin\": \"71.212.72.16\", \n  \"url\": \"https://httpbin.org/get\"\n}\n",
       "headers": {
-        "Date": "Mon, 04 Dec 2023 20:48:33 GMT",
+        "Date": "Tue, 05 Dec 2023 00:17:46 GMT",
         "Content-Type": "application/json",
         "Content-Length": "277",
         "Connection": "close",

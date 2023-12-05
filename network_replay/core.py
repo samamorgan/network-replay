@@ -3,11 +3,11 @@ import logging
 from ast import literal_eval
 from functools import wraps
 from pathlib import Path
+from socket import _GLOBAL_DEFAULT_TIMEOUT
 from typing import Callable
 from urllib.request import Request, urlopen
 
 from httpretty.core import MULTILINE_ANY_REGEX, httpretty
-from urllib3 import PoolManager
 
 logger = logging.getLogger(__name__)
 
@@ -46,8 +46,7 @@ class ReplayManager(httpretty):
         self.path = path
         self.record_on_error = record_on_error
 
-        self.calls = []
-        self.http = None
+        self._calls = []
 
     def __enter__(self):
         self.reset()
@@ -60,7 +59,6 @@ class ReplayManager(httpretty):
             return self
 
         logger.debug("Recording network interactions")
-        self.http = PoolManager()
         self.enable(allow_net_connect=True)
 
         for method in self.METHODS:
@@ -76,7 +74,7 @@ class ReplayManager(httpretty):
             logger.debug("Not recording due to error")
             return
 
-        if not self.calls:
+        if not self._calls:
             logger.debug("No interactions to record")
             return
 
@@ -85,7 +83,7 @@ class ReplayManager(httpretty):
 
         with self.path.open("w") as f:
             # TODO: Pluggable serializer, ex. for YAML support.
-            json.dump(self.calls, f, indent=2)
+            json.dump(self._calls, f, indent=2)
 
     def _register_recorded_requests(self):
         for item in json.load(self.path.open()):
@@ -110,23 +108,25 @@ class ReplayManager(httpretty):
             headers=request.headers,
             method=request.method,
         )
-        response = urlopen(_request)
+        response = urlopen(_request, timeout=request.timeout or _GLOBAL_DEFAULT_TIMEOUT)
         response_body = response.read()
 
-        payload = {}
-        payload["request"] = {
-            "uri": uri,
-            "method": request.method,
-            "headers": dict(request.headers),
-            "body": self._decode_body(request.body),
-            "querystring": request.querystring,
-        }
-        payload["response"] = {
-            "status": response.status,
-            "body": self._decode_body(response_body),
-            "headers": dict(response.headers),
-        }
-        self.calls.append(payload)
+        self._calls.append(
+            {
+                "request": {
+                    "uri": uri,
+                    "method": request.method,
+                    "headers": dict(request.headers),
+                    "body": self._decode_body(request.body),
+                    "querystring": request.querystring,
+                },
+                "response": {
+                    "status": response.status,
+                    "body": self._decode_body(response_body),
+                    "headers": dict(response.headers),
+                },
+            }
+        )
 
         self.enable(allow_net_connect=True)
 

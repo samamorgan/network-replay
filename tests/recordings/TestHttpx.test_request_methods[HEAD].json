@@ -5,10 +5,10 @@
       "method": "HEAD",
       "headers": {
         "Host": "httpbin.org",
-        "User-Agent": "python-requests/2.31.0",
-        "Accept-Encoding": "gzip, deflate",
         "Accept": "*/*",
-        "Connection": "keep-alive"
+        "Accept-Encoding": "gzip, deflate",
+        "Connection": "keep-alive",
+        "User-Agent": "python-httpx/0.25.2"
       },
       "body": "",
       "querystring": {}
@@ -17,7 +17,7 @@
       "status": 200,
       "body": "",
       "headers": {
-        "Date": "Mon, 04 Dec 2023 20:38:32 GMT",
+        "Date": "Tue, 05 Dec 2023 00:17:38 GMT",
         "Content-Type": "text/html; charset=utf-8",
         "Content-Length": "0",
         "Connection": "close",

@@ -1,0 +1,29 @@
+[
+  {
+    "request": {
+      "uri": "https://httpbin.org/status/200",
+      "method": "HEAD",
+      "headers": {
+        "Accept-Encoding": "identity",
+        "Host": "httpbin.org",
+        "User-Agent": "Python-urllib/3.10",
+        "Connection": "close"
+      },
+      "body": "",
+      "querystring": {}
+    },
+    "response": {
+      "status": 200,
+      "body": "",
+      "headers": {
+        "Date": "Tue, 05 Dec 2023 00:17:44 GMT",
+        "Content-Type": "text/html; charset=utf-8",
+        "Content-Length": "0",
+        "Connection": "close",
+        "Server": "gunicorn/19.9.0",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Credentials": "true"
+      }
+    }
+  }
+]
