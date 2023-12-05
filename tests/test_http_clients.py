@@ -9,6 +9,16 @@ from PIL import Image
 
 HTTPBIN = "https://httpbin.org"
 
+REQUEST_METHODS = (
+    ("DELETE", f"{HTTPBIN}/delete"),
+    ("GET", f"{HTTPBIN}/get"),
+    ("HEAD", f"{HTTPBIN}/status/200"),
+    ("OPTIONS", f"{HTTPBIN}/status/200"),
+    ("PATCH", f"{HTTPBIN}/patch"),
+    ("POST", f"{HTTPBIN}/post"),
+    ("PUT", f"{HTTPBIN}/put"),
+)
+
 
 class BaseClientTest:
     status_code_property = ""
@@ -22,17 +32,9 @@ class BaseClientTest:
 
     @pytest.mark.network_replay
     @pytest.mark.parametrize(
-        "method,url",
-        [
-            ("DELETE", f"{HTTPBIN}/delete"),
-            ("GET", f"{HTTPBIN}/get"),
-            ("HEAD", f"{HTTPBIN}/status/200"),
-            ("OPTIONS", f"{HTTPBIN}/status/200"),
-            ("PATCH", f"{HTTPBIN}/patch"),
-            ("POST", f"{HTTPBIN}/post"),
-            ("PUT", f"{HTTPBIN}/put"),
-        ],
-        ids=["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"],
+        ("method", "url"),
+        REQUEST_METHODS,
+        ids=(method for method, _ in REQUEST_METHODS),
     )
     def test_request_methods(self, method, url):
         response = self.make_request(method, url)
@@ -83,7 +85,7 @@ class TestUrllib(BaseClientTest):
         request = Request(url, method=method)
         return urlopen(request, *args, timeout=1, **kwargs)
 
-    @pytest.mark.skip
+    @pytest.mark.skip(reason="Don't feel like figuring out the correct logic")
     def test_multipart_post(self):
         pass
 
