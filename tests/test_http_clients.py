@@ -8,7 +8,6 @@ import urllib3
 from PIL import Image
 
 HTTPBIN = "https://httpbin.org"
-
 REQUEST_METHODS = (
     ("DELETE", f"{HTTPBIN}/delete"),
     ("GET", f"{HTTPBIN}/get"),
@@ -82,6 +81,7 @@ class TestUrllib(BaseClientTest):
     status_code_property = "code"
 
     def make_request(self, method, url, *args, **kwargs):
+        # HACK: For some reason urllib needs an explicit timeout to record requests
         request = Request(url, method=method)
         return urlopen(request, *args, timeout=1, **kwargs)
 

@@ -42,9 +42,17 @@ def _recording_path(func, subdir) -> Path:
 
 
 class ReplayManager(httpretty):
-    def __init__(self, path: Path, record_on_error=False):
+    def __init__(
+        self,
+        path: Path,
+        record_on_error: bool = False,
+        filter_headers: list | tuple = (),
+        filter_querystring: list | tuple = (),
+    ):
         self.path = path
         self.record_on_error = record_on_error
+        self.filter_headers = filter_headers
+        self.filter_querystring = filter_querystring
 
         self._calls = []
 
@@ -97,6 +105,7 @@ class ReplayManager(httpretty):
                 body=body,
                 forcing_headers=item["response"]["headers"],
                 status=item["response"]["status"],
+                match_querystring=True,
             )
 
     def _record_request(self, request, uri, headers):
@@ -116,14 +125,14 @@ class ReplayManager(httpretty):
                 "request": {
                     "uri": uri,
                     "method": request.method,
-                    "headers": dict(request.headers),
+                    "headers": self._filter_headers(dict(request.headers)),
                     "body": self._decode_body(request.body),
                     "querystring": request.querystring,
                 },
                 "response": {
                     "status": response.status,
                     "body": self._decode_body(response_body),
-                    "headers": dict(response.headers),
+                    "headers": self._filter_headers(dict(response.headers)),
                 },
             }
         )
@@ -131,6 +140,19 @@ class ReplayManager(httpretty):
         self.enable(allow_net_connect=True)
 
         return response.status, response.headers, response_body
+
+    def _filter_headers(self, headers):
+        for i in self.filter_headers:
+            if i not in headers:
+                continue
+
+            if isinstance(i, str):
+                del headers[i]
+            elif isinstance(i, (list, tuple)):
+                k, replacement = i
+                headers[k] = replacement
+
+        return headers
 
     def _decode_body(self, body: bytes) -> str:
         try:

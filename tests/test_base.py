@@ -69,7 +69,7 @@ class TestReplayManager:
             pass
 
         request = MockRequest()
-        request.headers = {}
+        request.headers = {"User-Agent": "test", "Accept": "application/json"}
         request.body = b""
         request.method = "GET"
         request.querystring = {}
@@ -149,11 +149,25 @@ class TestReplayManager:
         assert len(manager._entries) == len(request_json)
 
     def test__record_request(self, manager, mock_request):
-        manager.http = PoolManager()
         status, *_ = manager._record_request(
             mock_request, "https://httpbin.org/get", {}
         )
         assert status == HTTPStatus.OK
+
+    def test__record_request_filter_headers(self, manager, mock_request):
+        manager.filter_headers = ["User-Agent", "Content-Type"]
+        assert "User-Agent" in mock_request.headers
+
+        status, *_ = manager._record_request(
+            mock_request, "https://httpbin.org/get", {}
+        )
+        assert status == HTTPStatus.OK
+
+        request = manager._calls[0]["request"]
+        assert "User-Agent" not in request["headers"]
+
+        response = manager._calls[0]["response"]
+        assert "Content-Type" not in response["headers"]
 
     @pytest.mark.parametrize(
         "body, should_decode",
