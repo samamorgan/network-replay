@@ -1,0 +1,28 @@
+[
+  {
+    "request": {
+      "uri": "https://httpbin.org/get",
+      "method": "GET",
+      "headers": {
+        "Accept-Encoding": "identity",
+        "Host": "httpbin.org",
+        "Connection": "close"
+      },
+      "body": "",
+      "querystring": {}
+    },
+    "response": {
+      "status": 200,
+      "body": "{\n  \"args\": {}, \n  \"headers\": {\n    \"Accept-Encoding\": \"identity\", \n    \"Host\": \"httpbin.org\", \n    \"User-Agent\": \"Python-urllib/3.10\", \n    \"X-Amzn-Trace-Id\": \"Root=1-659b410b-21a5cd5949f6cada5fd5afec\"\n  }, \n  \"origin\": \"97.126.147.157\", \n  \"url\": \"https://httpbin.org/get\"\n}\n",
+      "headers": {
+        "Date": "Mon, 08 Jan 2024 00:25:47 GMT",
+        "Content-Type": "REDACTED",
+        "Content-Length": "277",
+        "Connection": "close",
+        "Server": "gunicorn/19.9.0",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Credentials": "true"
+      }
+    }
+  }
+]

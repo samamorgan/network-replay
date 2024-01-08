@@ -49,6 +49,6 @@ def recording_path(request, recording_dir) -> Path:
 
 
 @pytest.fixture
-def network_replay(recording_path):
+def network_replay(recording_path) -> ReplayManager:
     with ReplayManager(recording_path) as recorder:
         yield recorder

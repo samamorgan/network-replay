@@ -8,15 +8,15 @@ import urllib3
 from PIL import Image
 
 HTTPBIN = "https://httpbin.org"
-REQUEST_METHODS = (
-    ("DELETE", f"{HTTPBIN}/delete"),
-    ("GET", f"{HTTPBIN}/get"),
-    ("HEAD", f"{HTTPBIN}/status/200"),
-    ("OPTIONS", f"{HTTPBIN}/status/200"),
-    ("PATCH", f"{HTTPBIN}/patch"),
-    ("POST", f"{HTTPBIN}/post"),
-    ("PUT", f"{HTTPBIN}/put"),
-)
+REQUEST_METHODS = {
+    "DELETE": f"{HTTPBIN}/delete",
+    "GET": f"{HTTPBIN}/get",
+    "HEAD": f"{HTTPBIN}/status/200",
+    "OPTIONS": f"{HTTPBIN}/status/200",
+    "PATCH": f"{HTTPBIN}/patch",
+    "POST": f"{HTTPBIN}/post",
+    "PUT": f"{HTTPBIN}/put",
+}
 
 
 class BaseClientTest:
@@ -32,12 +32,32 @@ class BaseClientTest:
     @pytest.mark.network_replay
     @pytest.mark.parametrize(
         ("method", "url"),
-        REQUEST_METHODS,
-        ids=(method for method, _ in REQUEST_METHODS),
+        [(method, url) for method, url in REQUEST_METHODS.items()],
+        ids=list(REQUEST_METHODS),
     )
     def test_request_methods(self, method, url):
         response = self.make_request(method, url)
         assert getattr(response, self.status_code_property) == HTTPStatus.OK
+
+    def test_filter_headers(self, network_replay):
+        network_replay.filter_headers = ["User-Agent", ("Content-Type", "REDACTED")]
+        response = self.make_request("GET", REQUEST_METHODS["GET"])
+        assert getattr(response, self.status_code_property) == HTTPStatus.OK
+
+        request = network_replay._calls[0]["request"]
+        assert "User-Agent" not in request["headers"]
+
+        response = network_replay._calls[0]["response"]
+        assert response["headers"]["Content-Type"] == "REDACTED"
+
+    def test_filter_querystring(self, network_replay):
+        network_replay.filter_querystring = ["foo", ("bar", "REDACTED")]
+        response = self.make_request("GET", f"{HTTPBIN}/response-headers?foo=1&bar=2")
+        assert getattr(response, self.status_code_property) == HTTPStatus.OK
+
+        querystring = network_replay._calls[0]["request"]["querystring"]
+        assert "foo" not in querystring
+        assert querystring["bar"] == "REDACTED"
 
     @pytest.mark.network_replay
     def test_image_get(self):

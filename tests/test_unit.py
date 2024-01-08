@@ -6,7 +6,6 @@ from tempfile import gettempdir
 
 import pytest
 import requests
-from urllib3 import PoolManager
 
 from network_replay import ReplayManager, replay
 from network_replay.core import _recording_path
@@ -72,7 +71,7 @@ class TestReplayManager:
         request.headers = {"User-Agent": "test", "Accept": "application/json"}
         request.body = b""
         request.method = "GET"
-        request.querystring = {}
+        request.querystring = {"foo": 1, "bar": 2}
         request.timeout = _GLOBAL_DEFAULT_TIMEOUT
 
         return request
@@ -105,6 +104,9 @@ class TestReplayManager:
     def manager(self, path):
         return ReplayManager(path=path)
 
+    def test___str__(self, manager):
+        assert str(manager) == "<ReplayManager with 0 URI entries>"
+
     def test___init__(self, path, manager):
         assert manager.path == path
         assert manager.record_on_error is False
@@ -127,14 +129,14 @@ class TestReplayManager:
 
         assert m._is_enabled is False
 
-    def test___exit___record(self, manager, path):
+    def test___exit___record(self, manager):
         with manager as m:
             m._calls.append("test")
 
         assert m._is_enabled is False
         assert manager.path.exists()
 
-    def test___exit___record_on_error(self, manager, path):
+    def test___exit___record_on_error(self, manager):
         with pytest.raises(Exception):
             with manager as m:
                 m.calls.append("test")
@@ -150,24 +152,25 @@ class TestReplayManager:
 
     def test__record_request(self, manager, mock_request):
         status, *_ = manager._record_request(
-            mock_request, "https://httpbin.org/get", {}
+            mock_request, "https://httpbin.org/response-headers?foo=bar", {}
         )
         assert status == HTTPStatus.OK
 
-    def test__record_request_filter_headers(self, manager, mock_request):
-        manager.filter_headers = ["User-Agent", "Content-Type"]
+    def test___filter_headers(self, manager, mock_request):
+        manager.filter_headers = ["User-Agent", ("Accept", "REDACTED"), "Content-Type"]
         assert "User-Agent" in mock_request.headers
 
-        status, *_ = manager._record_request(
-            mock_request, "https://httpbin.org/get", {}
-        )
-        assert status == HTTPStatus.OK
+        filtered_headers = manager._filter_headers(mock_request.headers)
+        assert "User-Agent" not in filtered_headers
+        assert filtered_headers["Accept"] == "REDACTED"
 
-        request = manager._calls[0]["request"]
-        assert "User-Agent" not in request["headers"]
+    def test___filter_querystring(self, manager, mock_request):
+        manager.filter_querystring = ["foo", ("bar", "REDACTED"), "baz"]
+        assert "foo" in mock_request.querystring
 
-        response = manager._calls[0]["response"]
-        assert "Content-Type" not in response["headers"]
+        filtered_querystring = manager._filter_querystring(mock_request.querystring)
+        assert "foo" not in filtered_querystring
+        assert filtered_querystring["bar"] == "REDACTED"
 
     @pytest.mark.parametrize(
         "body, should_decode",

@@ -55,11 +55,15 @@ class ReplayManager(httpretty):
         self.filter_querystring = filter_querystring
 
         self._calls = []
+        self._replay_mode = self.path.exists()
+
+    def __str__(self):
+        return f"<{self.__class__.__name__} with {len(self._entries)} URI entries>"
 
     def __enter__(self):
         self.reset()
 
-        if self.path.exists():
+        if self._replay_mode:
             logger.debug(f"Replaying interactions from {self.path}")
             self.enable(allow_net_connect=False)
             self._register_recorded_requests()
@@ -82,7 +86,7 @@ class ReplayManager(httpretty):
             logger.debug("Not recording due to error")
             return
 
-        if not self._calls:
+        if not self._calls or self._replay_mode:
             logger.debug("No interactions to record")
             return
 
@@ -94,7 +98,8 @@ class ReplayManager(httpretty):
             json.dump(self._calls, f, indent=2)
 
     def _register_recorded_requests(self):
-        for item in json.load(self.path.open()):
+        self._calls = json.load(self.path.open())
+        for item in self._calls:
             body = item["response"]["body"]
             if body.startswith("b'"):
                 body = literal_eval(body)
@@ -127,7 +132,7 @@ class ReplayManager(httpretty):
                     "method": request.method,
                     "headers": self._filter_headers(dict(request.headers)),
                     "body": self._decode_body(request.body),
-                    "querystring": request.querystring,
+                    "querystring": self._filter_querystring(request.querystring),
                 },
                 "response": {
                     "status": response.status,
@@ -143,16 +148,35 @@ class ReplayManager(httpretty):
 
     def _filter_headers(self, headers):
         for i in self.filter_headers:
+            replacement = None
+            if isinstance(i, (list, tuple)):
+                i, replacement = i
+
             if i not in headers:
                 continue
 
-            if isinstance(i, str):
+            if replacement is None:
                 del headers[i]
-            elif isinstance(i, (list, tuple)):
-                k, replacement = i
-                headers[k] = replacement
+            else:
+                headers[i] = replacement
 
         return headers
+
+    def _filter_querystring(self, querystring):
+        for i in self.filter_querystring:
+            replacement = None
+            if isinstance(i, (list, tuple)):
+                i, replacement = i
+
+            if i not in querystring:
+                continue
+
+            if replacement is None:
+                del querystring[i]
+            else:
+                querystring[i] = replacement
+
+        return querystring
 
     def _decode_body(self, body: bytes) -> str:
         try:
