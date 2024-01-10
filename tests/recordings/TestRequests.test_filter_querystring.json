@@ -1,7 +1,7 @@
 [
   {
     "request": {
-      "uri": "https://httpbin.org/response-headers?bar=2&foo=1",
+      "uri": "https://httpbin.org/response-headers",
       "method": "GET",
       "headers": {
         "Host": "httpbin.org",
@@ -19,7 +19,7 @@
       "status": 200,
       "body": "{\n  \"Content-Length\": \"98\", \n  \"Content-Type\": \"application/json\", \n  \"bar\": \"2\", \n  \"foo\": \"1\"\n}\n",
       "headers": {
-        "Date": "Mon, 08 Jan 2024 00:25:51 GMT",
+        "Date": "Wed, 10 Jan 2024 22:12:05 GMT",
         "Content-Type": "application/json",
         "Content-Length": "98",
         "Connection": "close",

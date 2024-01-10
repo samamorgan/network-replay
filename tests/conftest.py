@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from network_replay.core import ReplayManager
+from network_replay import ReplayManager
 
 RECORDING_PATH = pytest.StashKey[Path]()
 
@@ -27,7 +27,7 @@ def pytest_runtest_call(item: pytest.Item) -> None:
 @pytest.fixture(autouse=True)
 def _replay_marker(request: pytest.FixtureRequest) -> None:
     if request.node.get_closest_marker("network_replay"):
-        request.getfixturevalue("network_replay")
+        request.getfixturevalue("replay_manager")
 
 
 @pytest.fixture
@@ -36,7 +36,7 @@ def recording_dir() -> str:
 
 
 @pytest.fixture
-def recording_path(request, recording_dir) -> Path:
+def recording_path(request: pytest.FixtureRequest, recording_dir: str) -> Path:
     """Path to the recording."""
     test_name = request.node.name
     if request.cls:
@@ -49,6 +49,13 @@ def recording_path(request, recording_dir) -> Path:
 
 
 @pytest.fixture
-def network_replay(recording_path) -> ReplayManager:
-    with ReplayManager(recording_path) as recorder:
+def replay_manager(
+    recording_path: Path, request: pytest.FixtureRequest
+) -> ReplayManager:
+    kwargs = {"path": recording_path}
+    replay_marker = request.node.get_closest_marker("network_replay")
+    if replay_marker:
+        kwargs.update(replay_marker.kwargs)
+
+    with ReplayManager(**kwargs) as recorder:
         yield recorder

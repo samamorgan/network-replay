@@ -37,8 +37,7 @@ class TestReplayDecorator:
             def get_200(self):
                 return _get_200()
 
-        requester = Requester()
-        response = requester.get_200()
+        response = Requester().get_200()
         assert response.status_code == HTTPStatus.OK
         assert (base_path / "recordings" / "Requester.get_200.json").exists()
 
@@ -104,13 +103,17 @@ class TestReplayManager:
     def manager(self, path):
         return ReplayManager(path=path)
 
+    def test___init__(self, path, manager):
+        assert manager.path == path.resolve()
+        assert manager.record_on_error is False
+        assert manager.filter_headers == ()
+        assert manager.filter_querystring == ()
+        assert manager.filter_uri == ()
+        assert manager._calls == []
+        assert manager._replay_mode is False
+
     def test___str__(self, manager):
         assert str(manager) == "<ReplayManager with 0 URI entries>"
-
-    def test___init__(self, path, manager):
-        assert manager.path == path
-        assert manager.record_on_error is False
-        assert manager._calls == []
 
     @pytest.mark.usefixtures("recording")
     def test___enter__replay(self, manager):

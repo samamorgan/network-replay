@@ -9,15 +9,9 @@ readme = "README.md"
 python = "^3.8"
 httpretty = "^1.1.4"
 
-[tool.poetry.group.dev]
-optional = true
-
 [tool.poetry.group.dev.dependencies]
 requests = "^2.31.0"
 ruff = "^0.1.6"
-
-[tool.poetry.group.test]
-optional = true
 
 [tool.poetry.group.test.dependencies]
 httpx = "^0.25.2"

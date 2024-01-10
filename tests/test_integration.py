@@ -39,25 +39,35 @@ class BaseClientTest:
         response = self.make_request(method, url)
         assert getattr(response, self.status_code_property) == HTTPStatus.OK
 
-    def test_filter_headers(self, network_replay):
-        network_replay.filter_headers = ["User-Agent", ("Content-Type", "REDACTED")]
+    @pytest.mark.network_replay(
+        filter_headers=["User-Agent", ("Content-Type", "REDACTED")]
+    )
+    def test_filter_headers(self, replay_manager):
         response = self.make_request("GET", REQUEST_METHODS["GET"])
         assert getattr(response, self.status_code_property) == HTTPStatus.OK
 
-        request = network_replay._calls[0]["request"]
+        request = replay_manager._calls[0]["request"]
         assert "User-Agent" not in request["headers"]
 
-        response = network_replay._calls[0]["response"]
+        response = replay_manager._calls[0]["response"]
         assert response["headers"]["Content-Type"] == "REDACTED"
 
-    def test_filter_querystring(self, network_replay):
-        network_replay.filter_querystring = ["foo", ("bar", "REDACTED")]
+    @pytest.mark.network_replay(filter_querystring=["foo", ("bar", "REDACTED")])
+    def test_filter_querystring(self, replay_manager):
         response = self.make_request("GET", f"{HTTPBIN}/response-headers?foo=1&bar=2")
         assert getattr(response, self.status_code_property) == HTTPStatus.OK
 
-        querystring = network_replay._calls[0]["request"]["querystring"]
+        querystring = replay_manager._calls[0]["request"]["querystring"]
         assert "foo" not in querystring
         assert querystring["bar"] == "REDACTED"
+
+    @pytest.mark.network_replay(filter_uri=["/get"])
+    def test_filter_uri(self, replay_manager):
+        response = self.make_request("GET", REQUEST_METHODS["GET"])
+        assert getattr(response, self.status_code_property) == HTTPStatus.OK
+
+        request = replay_manager._calls[0]["request"]
+        assert "get" not in request["uri"]
 
     @pytest.mark.network_replay
     def test_image_get(self):
