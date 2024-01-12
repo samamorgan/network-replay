@@ -9,12 +9,29 @@ import requests
 
 from network_replay import ReplayManager, replay
 from network_replay.core import _recording_path
+from network_replay.filters import _filter_headers, _filter_querystring, _filter_uri
 
 base_path = Path(__file__).parent
 
 
 def _get_200():
     return requests.get("https://httpbin.org/status/200")
+
+
+@pytest.fixture
+def mock_request():
+    class MockRequest:
+        pass
+
+    request = MockRequest()
+    request.uri = "https://httpbin.org/foo"
+    request.headers = {"User-Agent": "test", "Accept": "application/json"}
+    request.body = b""
+    request.method = "GET"
+    request.querystring = {"foo": 1, "bar": 2}
+    request.timeout = _GLOBAL_DEFAULT_TIMEOUT
+
+    return request
 
 
 class TestReplayDecorator:
@@ -62,20 +79,6 @@ class TestReplayManager:
         path.unlink(missing_ok=True)
 
     @pytest.fixture
-    def mock_request(self):
-        class MockRequest:
-            pass
-
-        request = MockRequest()
-        request.headers = {"User-Agent": "test", "Accept": "application/json"}
-        request.body = b""
-        request.method = "GET"
-        request.querystring = {"foo": 1, "bar": 2}
-        request.timeout = _GLOBAL_DEFAULT_TIMEOUT
-
-        return request
-
-    @pytest.fixture
     def request_json(self):
         return [
             {
@@ -101,10 +104,10 @@ class TestReplayManager:
 
     @pytest.fixture
     def manager(self, path):
-        return ReplayManager(path=path)
+        return ReplayManager(path=str(path))
 
     def test___init__(self, path, manager):
-        assert manager.path == path.resolve()
+        assert manager.serializer.path == path.resolve()
         assert manager.record_on_error is False
         assert manager.filter_headers == ()
         assert manager.filter_querystring == ()
@@ -137,7 +140,7 @@ class TestReplayManager:
             m._calls.append("test")
 
         assert m._is_enabled is False
-        assert manager.path.exists()
+        assert manager.serializer.path.exists()
 
     def test___exit___record_on_error(self, manager):
         with pytest.raises(Exception):
@@ -146,34 +149,18 @@ class TestReplayManager:
                 raise Exception
 
         assert m._is_enabled is False
-        assert not manager.path.exists()
+        assert not manager.serializer.path.exists()
 
     @pytest.mark.usefixtures("recording")
-    def test__register_recorded_requests(self, manager, request_json):
+    def test__register_recorded_requests(self, manager: ReplayManager, request_json):
         manager._register_recorded_requests()
         assert len(manager._entries) == len(request_json)
 
-    def test__record_request(self, manager, mock_request):
+    def test__record_request(self, manager: ReplayManager, mock_request):
         status, *_ = manager._record_request(
             mock_request, "https://httpbin.org/response-headers?foo=bar", {}
         )
         assert status == HTTPStatus.OK
-
-    def test___filter_headers(self, manager, mock_request):
-        manager.filter_headers = ["User-Agent", ("Accept", "REDACTED"), "Content-Type"]
-        assert "User-Agent" in mock_request.headers
-
-        filtered_headers = manager._filter_headers(mock_request.headers)
-        assert "User-Agent" not in filtered_headers
-        assert filtered_headers["Accept"] == "REDACTED"
-
-    def test___filter_querystring(self, manager, mock_request):
-        manager.filter_querystring = ["foo", ("bar", "REDACTED"), "baz"]
-        assert "foo" in mock_request.querystring
-
-        filtered_querystring = manager._filter_querystring(mock_request.querystring)
-        assert "foo" not in filtered_querystring
-        assert filtered_querystring["bar"] == "REDACTED"
 
     @pytest.mark.parametrize(
         "body, should_decode",
@@ -187,3 +174,30 @@ class TestReplayManager:
             assert decoded == body.decode()
         else:
             assert decoded == str(body)
+
+
+class TestFilters:
+    def test___filter_headers(self, mock_request):
+        assert "User-Agent" in mock_request.headers
+
+        _filter = ["User-Agent", ("Accept", "REDACTED"), "Content-Type"]
+        filtered_headers = _filter_headers(mock_request.headers, _filter)
+        assert "User-Agent" not in filtered_headers
+        assert filtered_headers["Accept"] == "REDACTED"
+
+    def test___filter_querystring(self, mock_request):
+        assert "foo" in mock_request.querystring
+
+        _filter = ["foo", ("bar", "REDACTED"), "baz"]
+        filtered_querystring = _filter_querystring(mock_request.querystring, _filter)
+        assert "foo" not in filtered_querystring
+        assert filtered_querystring["bar"] == "REDACTED"
+
+    def test__filter_uri(self, mock_request):
+        assert "httpbin.org" in mock_request.uri
+
+        _filter = ["status", ("foo", "REDACTED")]
+        filtered_uri = _filter_uri(mock_request.uri, _filter)
+        assert "status" not in filtered_uri
+        assert "foo" not in filtered_uri
+        assert "REDACTED" in filtered_uri

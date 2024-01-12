@@ -13,11 +13,21 @@
     },
     "response": {
       "status": 200,
-      "body": "{\n  \"args\": {}, \n  \"headers\": {\n    \"Accept-Encoding\": \"identity\", \n    \"Host\": \"httpbin.org\", \n    \"User-Agent\": \"Python-urllib/3.10\", \n    \"X-Amzn-Trace-Id\": \"Root=1-659f1638-7ab613097467384b32fd403d\"\n  }, \n  \"origin\": \"97.126.147.157\", \n  \"url\": \"https://httpbin.org/get\"\n}\n",
+      "body": {
+        "args": {},
+        "headers": {
+          "Accept-Encoding": "identity",
+          "Host": "httpbin.org",
+          "User-Agent": "Python-urllib/3.10",
+          "X-Amzn-Trace-Id": "Root=1-65a08816-19ab1813642c2b6317860fcf"
+        },
+        "origin": "97.126.147.157",
+        "url": "https://httpbin.org/get"
+      },
       "headers": {
-        "Date": "Wed, 10 Jan 2024 22:12:08 GMT",
+        "Date": "Fri, 12 Jan 2024 00:30:14 GMT",
         "Content-Type": "REDACTED",
-        "Content-Length": "277",
+        "Content-Length": "240",
         "Connection": "close",
         "Server": "gunicorn/19.9.0",
         "Access-Control-Allow-Origin": "*",

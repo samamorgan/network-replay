@@ -1,27 +1,15 @@
+from __future__ import annotations
+
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
 from network_replay import ReplayManager
+from network_replay.serializers import JSONSerializer
 
-RECORDING_PATH = pytest.StashKey[Path]()
-
-
-@pytest.hookimpl(hookwrapper=True)
-def pytest_runtest_call(item: pytest.Item) -> None:
-    output = yield
-
-    if not item.get_closest_marker("network_replay"):
-        return
-
-    ReplayManager.disable()
-    if output.excinfo is not None:
-        return
-
-    try:
-        item.stash[RECORDING_PATH].resolve(strict=True)
-    except FileNotFoundError as exc:
-        pytest.fail(str(exc))
+if TYPE_CHECKING:
+    from network_replay.serializers import Serializer
 
 
 @pytest.fixture(autouse=True)
@@ -36,26 +24,71 @@ def recording_dir() -> str:
 
 
 @pytest.fixture
-def recording_path(request: pytest.FixtureRequest, recording_dir: str) -> Path:
+def replay_recording_path(request: pytest.FixtureRequest, recording_dir: str) -> Path:
     """Path to the recording."""
     test_name = request.node.name
     if request.cls:
         test_name = f"{request.cls.__name__}.{test_name}"
 
-    path = Path(request.node.fspath.dirname, recording_dir, f"{test_name}.json")
-    request.node.stash[RECORDING_PATH] = path
+    return Path(request.node.fspath.dirname, recording_dir, f"{test_name}.json")
 
-    return path
+
+@pytest.fixture
+def replay_record_on_error() -> bool:
+    return False
+
+
+@pytest.fixture
+def replay_filter_headers() -> tuple:
+    return ()
+
+
+@pytest.fixture
+def replay_filter_querystring() -> tuple:
+    return ()
+
+
+@pytest.fixture
+def replay_filter_uri() -> tuple:
+    return ()
+
+
+@pytest.fixture
+def replay_serializer() -> JSONSerializer:
+    return JSONSerializer
+
+
+@pytest.fixture
+def replay_config(
+    replay_recording_path: Path,
+    replay_record_on_error: bool,
+    replay_filter_headers: tuple,
+    replay_filter_querystring: tuple,
+    replay_filter_uri: tuple,
+    replay_serializer: Serializer,
+) -> dict:
+    return {
+        "path": replay_recording_path,
+        "record_on_error": replay_record_on_error,
+        "filter_headers": replay_filter_headers,
+        "filter_querystring": replay_filter_querystring,
+        "filter_uri": replay_filter_uri,
+        "serializer": replay_serializer,
+    }
 
 
 @pytest.fixture
 def replay_manager(
-    recording_path: Path, request: pytest.FixtureRequest
+    replay_config: dict, request: pytest.FixtureRequest
 ) -> ReplayManager:
-    kwargs = {"path": recording_path}
     replay_marker = request.node.get_closest_marker("network_replay")
     if replay_marker:
-        kwargs.update(replay_marker.kwargs)
+        replay_config.update(replay_marker.kwargs)
 
-    with ReplayManager(**kwargs) as recorder:
-        yield recorder
+    with ReplayManager(**replay_config) as manager:
+        yield manager
+
+    try:
+        manager.serializer.path.resolve(strict=True)
+    except FileNotFoundError as exc:
+        pytest.fail(str(exc))

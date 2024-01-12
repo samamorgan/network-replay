@@ -8,18 +8,37 @@
         "Accept-Encoding": "identity",
         "Content-Length": "174",
         "User-Agent": "python-urllib3/2.1.0",
-        "Content-Type": "multipart/form-data; boundary=90bf845e8b3573f6696d9017d13b1ddd"
+        "Content-Type": "multipart/form-data; boundary=c02bfb56f0e354f47ec1628c143a8ed5"
       },
-      "body": "--90bf845e8b3573f6696d9017d13b1ddd\r\nContent-Disposition: form-data; name=\"file\"; filename=\"test.txt\"\r\nContent-Type: text/plain\r\n\r\ntest\r\n--90bf845e8b3573f6696d9017d13b1ddd--\r\n",
+      "body": "--c02bfb56f0e354f47ec1628c143a8ed5\r\nContent-Disposition: form-data; name=\"file\"; filename=\"test.txt\"\r\nContent-Type: text/plain\r\n\r\ntest\r\n--c02bfb56f0e354f47ec1628c143a8ed5--\r\n",
       "querystring": {}
     },
     "response": {
       "status": 200,
-      "body": "{\n  \"args\": {}, \n  \"data\": \"\", \n  \"files\": {\n    \"file\": \"test\"\n  }, \n  \"form\": {}, \n  \"headers\": {\n    \"Accept-Encoding\": \"identity\", \n    \"Content-Length\": \"174\", \n    \"Content-Type\": \"multipart/form-data; boundary=90bf845e8b3573f6696d9017d13b1ddd\", \n    \"Host\": \"httpbin.org\", \n    \"User-Agent\": \"python-urllib3/2.1.0\", \n    \"X-Amzn-Trace-Id\": \"Root=1-659f163d-527105f56d36892956dbfc73\"\n  }, \n  \"json\": null, \n  \"method\": \"POST\", \n  \"origin\": \"97.126.147.157\", \n  \"url\": \"https://httpbin.org/anything\"\n}\n",
+      "body": {
+        "args": {},
+        "data": "",
+        "files": {
+          "file": "test"
+        },
+        "form": {},
+        "headers": {
+          "Accept-Encoding": "identity",
+          "Content-Length": "174",
+          "Content-Type": "multipart/form-data; boundary=c02bfb56f0e354f47ec1628c143a8ed5",
+          "Host": "httpbin.org",
+          "User-Agent": "python-urllib3/2.1.0",
+          "X-Amzn-Trace-Id": "Root=1-65a0881c-0026a2ee4b93c4a97e32ff1c"
+        },
+        "json": null,
+        "method": "POST",
+        "origin": "97.126.147.157",
+        "url": "https://httpbin.org/anything"
+      },
       "headers": {
-        "Date": "Wed, 10 Jan 2024 22:12:13 GMT",
+        "Date": "Fri, 12 Jan 2024 00:30:20 GMT",
         "Content-Type": "application/json",
-        "Content-Length": "507",
+        "Content-Length": "437",
         "Connection": "close",
         "Server": "gunicorn/19.9.0",
         "Access-Control-Allow-Origin": "*",

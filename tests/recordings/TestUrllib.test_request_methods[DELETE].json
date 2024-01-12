@@ -14,11 +14,25 @@
     },
     "response": {
       "status": 200,
-      "body": "{\n  \"args\": {}, \n  \"data\": \"\", \n  \"files\": {}, \n  \"form\": {}, \n  \"headers\": {\n    \"Accept-Encoding\": \"identity\", \n    \"Host\": \"httpbin.org\", \n    \"User-Agent\": \"Python-urllib/3.10\", \n    \"X-Amzn-Trace-Id\": \"Root=1-659f1636-33c03331284444793754e198\"\n  }, \n  \"json\": null, \n  \"origin\": \"97.126.147.157\", \n  \"url\": \"https://httpbin.org/delete\"\n}\n",
+      "body": {
+        "args": {},
+        "data": "",
+        "files": {},
+        "form": {},
+        "headers": {
+          "Accept-Encoding": "identity",
+          "Host": "httpbin.org",
+          "User-Agent": "Python-urllib/3.10",
+          "X-Amzn-Trace-Id": "Root=1-65a08814-2824ed7322f9469d7639157e"
+        },
+        "json": null,
+        "origin": "97.126.147.157",
+        "url": "https://httpbin.org/delete"
+      },
       "headers": {
-        "Date": "Wed, 10 Jan 2024 22:12:06 GMT",
+        "Date": "Fri, 12 Jan 2024 00:30:12 GMT",
         "Content-Type": "application/json",
-        "Content-Length": "343",
+        "Content-Length": "294",
         "Connection": "close",
         "Server": "gunicorn/19.9.0",
         "Access-Control-Allow-Origin": "*",

@@ -35,3 +35,6 @@ markers = [
 [tool.coverage.run]
 branch = true
 omit = ["tests/*"]
+
+[tool.coverage.report]
+exclude_also = ["if TYPE_CHECKING:"]

@@ -15,11 +15,26 @@
     },
     "response": {
       "status": 200,
-      "body": "{\n  \"args\": {}, \n  \"data\": \"\", \n  \"files\": {}, \n  \"form\": {}, \n  \"headers\": {\n    \"Accept-Encoding\": \"identity\", \n    \"Content-Length\": \"0\", \n    \"Host\": \"httpbin.org\", \n    \"User-Agent\": \"Python-urllib/3.10\", \n    \"X-Amzn-Trace-Id\": \"Root=1-659f1637-5dd611c6462887a96b07d958\"\n  }, \n  \"json\": null, \n  \"origin\": \"97.126.147.157\", \n  \"url\": \"https://httpbin.org/patch\"\n}\n",
+      "body": {
+        "args": {},
+        "data": "",
+        "files": {},
+        "form": {},
+        "headers": {
+          "Accept-Encoding": "identity",
+          "Content-Length": "0",
+          "Host": "httpbin.org",
+          "User-Agent": "Python-urllib/3.10",
+          "X-Amzn-Trace-Id": "Root=1-65a08815-031229d63141cb3b7ca9d51f"
+        },
+        "json": null,
+        "origin": "97.126.147.157",
+        "url": "https://httpbin.org/patch"
+      },
       "headers": {
-        "Date": "Wed, 10 Jan 2024 22:12:07 GMT",
+        "Date": "Fri, 12 Jan 2024 00:30:13 GMT",
         "Content-Type": "application/json",
-        "Content-Length": "370",
+        "Content-Length": "316",
         "Connection": "close",
         "Server": "gunicorn/19.9.0",
         "Access-Control-Allow-Origin": "*",

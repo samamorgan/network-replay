@@ -5,11 +5,14 @@ from ast import literal_eval
 from functools import wraps
 from pathlib import Path
 from socket import _GLOBAL_DEFAULT_TIMEOUT
-from typing import Callable
-from urllib.parse import urlparse, urlunparse
+from typing import Any, Callable
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 from urllib.request import Request, urlopen
 
-from httpretty.core import MULTILINE_ANY_REGEX, httpretty
+from httpretty.core import MULTILINE_ANY_REGEX, URIInfo, URIMatcher, httpretty
+
+from .filters import _filter_headers, _filter_querystring, _filter_uri
+from .serializers import JSONSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +23,6 @@ def replay(func: Callable = None, *, directory="recordings") -> Callable:
 
         @wraps(func)
         def wrapper(*args, **kwargs):
-            path.parent.mkdir(exist_ok=True)
-
             with ReplayManager(path):
                 return func(*args, **kwargs)
 
@@ -51,18 +52,15 @@ class ReplayManager(httpretty):
         filter_headers: list | tuple = (),
         filter_querystring: list | tuple = (),
         filter_uri: list | tuple = (),
+        serializer: Callable = JSONSerializer,
     ):
         self.record_on_error = record_on_error
         self.filter_headers = filter_headers
         self.filter_querystring = filter_querystring
         self.filter_uri = filter_uri
-
-        if isinstance(path, str):
-            path = Path(path)
-        self.path = path.resolve()
+        self.serializer = serializer(Path(path).resolve())
 
         self._calls = []
-        self._replay_mode = self.path.exists()
 
     def __str__(self):
         return f"<{self.__class__.__name__} with {len(self._entries)} URI entries>"
@@ -71,7 +69,7 @@ class ReplayManager(httpretty):
         self.reset()
 
         if self._replay_mode:
-            logger.debug(f"Replaying interactions from {self.path}")
+            logger.debug(f"Replaying interactions from {self.serializer.path}")
             self.enable(allow_net_connect=False)
             self._register_recorded_requests()
 
@@ -101,27 +99,88 @@ class ReplayManager(httpretty):
             logger.debug("No recording in replay mode")
             return
 
-        logger.debug(f"Writing interactions to {self.path}")
-        self.path.parent.mkdir(exist_ok=True)
+        logger.debug(f"Writing interactions to {self.serializer.path}")
+        self.serializer.serialize(self._calls)
 
-        with self.path.open("w") as f:
-            # TODO: Configurable serializer, ex. for YAML support.
-            json.dump(self._calls, f, indent=2)
+    @property
+    def _replay_mode(self):
+        return self.serializer.path.exists()
+
+    def register_uri(
+        self,
+        method,
+        uri,
+        body='{"message": "ReplayManager :)"}',
+        adding_headers=None,
+        forcing_headers=None,
+        status=200,
+        responses=None,
+        match_querystring=False,
+        priority=0,
+        **headers,
+    ):
+        """Override of `httpretty.core.register_uri` to support filtering."""
+        uri_is_string = isinstance(uri, str)
+
+        if uri_is_string and re.search(r"^\w+://[^/]+[.]\w{2,}(:[0-9]+)?$", uri):
+            uri += "/"
+
+        if isinstance(responses, list) and len(responses) > 0:
+            for response in responses:
+                response.uri = uri
+                response.method = method
+            entries_for_this_uri = responses
+        else:
+            headers["body"] = body
+            headers["adding_headers"] = adding_headers
+            headers["forcing_headers"] = forcing_headers
+            headers["status"] = status
+
+            entries_for_this_uri = [
+                self.Response(method=method, uri=uri, **headers),
+            ]
+
+        matcher = ReplayURIMatcher(
+            uri,
+            entries_for_this_uri,
+            match_querystring,
+            priority,
+            self.filter_uri,
+            self.filter_querystring,
+        )
+        if matcher in self._entries:
+            matcher.entries.extend(self._entries[matcher])
+            del self._entries[matcher]
+
+        self._entries[matcher] = entries_for_this_uri
 
     def _register_recorded_requests(self):
-        self._calls = json.load(self.path.open())
+        """Register recorded requests for playback.
+
+        Since serializing responses modifies the original response length, we need to
+        dynamically calculate the Content-Length header to pass httpretty's validation.
+        """
+        self._calls = self.serializer.deserialize()
+
         for item in self._calls:
-            body = item["response"]["body"]
+            body = str(item["response"]["body"])
             if body.startswith("b'"):
                 body = literal_eval(body)
 
+            response_headers = item["response"]["headers"]
+            # if "Content-Length" in response_headers:
+            #     response_headers["Content-Length"] = str(len(body))
+
             self.register_uri(
                 method=item["request"]["method"],
-                uri=self._generate_uri_regex(
+                # uri=self._generate_uri_regex(
+                #     item["request"]["uri"], item["request"]["querystring"]
+                # ),
+                uri=self._add_querystring(
                     item["request"]["uri"], item["request"]["querystring"]
                 ),
                 body=body,
-                forcing_headers=item["response"]["headers"],
+                forcing_headers=response_headers,
                 status=item["response"]["status"],
                 match_querystring=True,
             )
@@ -137,21 +196,34 @@ class ReplayManager(httpretty):
         )
         response = urlopen(_request, timeout=request.timeout or _GLOBAL_DEFAULT_TIMEOUT)
         response_body = response.read()
+        decoded_response_body = self._decode_body(response_body)
+
+        request_dict = {
+            "uri": _filter_uri(self._remove_querystring(uri), self.filter_uri),
+            "method": request.method,
+            "headers": _filter_headers(dict(request.headers), self.filter_headers),
+            "body": self._decode_body(request.body),
+            "querystring": _filter_querystring(
+                request.querystring, self.filter_querystring
+            ),
+        }
+        response_dict = {
+            "status": response.status,
+            "body": decoded_response_body,
+            "headers": _filter_headers(dict(response.headers), self.filter_headers),
+        }
+
+        # Since serializing responses modifies the original response length, we need to
+        # calculate the Content-Length header to pass httpretty's validation.
+        if "Content-Length" in response_dict["headers"]:
+            body_length = self._calculate_body_length(decoded_response_body)
+            if body_length is not None:
+                response_dict["headers"]["Content-Length"] = body_length
 
         self._calls.append(
             {
-                "request": {
-                    "uri": self._filter_uri(self._remove_querystring(uri)),
-                    "method": request.method,
-                    "headers": self._filter_headers(dict(request.headers)),
-                    "body": self._decode_body(request.body),
-                    "querystring": self._filter_querystring(request.querystring),
-                },
-                "response": {
-                    "status": response.status,
-                    "body": self._decode_body(response_body),
-                    "headers": self._filter_headers(dict(response.headers)),
-                },
+                "request": request_dict,
+                "response": response_dict,
             }
         )
 
@@ -159,84 +231,82 @@ class ReplayManager(httpretty):
 
         return response.status, response.headers, response_body
 
-    def _generate_uri_regex(self, uri: str, querystring: dict) -> re.Pattern:
-        """Generate a regex to match a URI with querystring from a recorded call.
-
-        Explanation of URI regex: TODO
-        Explanation of querystring regex: https://regex101.com/r/TRD1mO/1
-
-        Args:
-            uri (str): The base URI.
-            querystring (dict): The querystring from the recorded request.
-
-        Returns:
-            re.Pattern: A compiled regex pattern.
-        """
-        qs_fields = list(querystring)
-        filter_fields = (
-            i[0] if not isinstance(i, str) else i for i in self.filter_querystring
-        )
-        fields_or = "|".join(set((*qs_fields, *filter_fields)))
-
-        if not fields_or:
-            return re.compile(rf"^{re.escape(uri)}$")
-        return re.compile(rf"^{re.escape(uri)}(\??({fields_or})=[^.*&]+&?)+$")
-
     def _remove_querystring(self, uri):
         scheme, netloc, path, params, _, fragment = urlparse(uri)
 
         return urlunparse((scheme, netloc, path, params, "", fragment))
 
-    def _filter_headers(self, headers):
-        for i in self.filter_headers:
-            replacement = None
-            if isinstance(i, (list, tuple)):
-                i, replacement = i
+    def _add_querystring(self, uri, querystring):
+        scheme, netloc, path, params, query, fragment = urlparse(uri)
+        combined_query = urlencode({**parse_qs(query), **querystring}, doseq=True)
 
-            if i not in headers:
-                continue
+        return urlunparse((scheme, netloc, path, params, combined_query, fragment))
 
-            if replacement is None:
-                del headers[i]
-            else:
-                headers[i] = replacement
-
-        return headers
-
-    def _filter_querystring(self, querystring):
-        for i in self.filter_querystring:
-            replacement = None
-            if isinstance(i, (list, tuple)):
-                i, replacement = i
-
-            if i not in querystring:
-                continue
-
-            if replacement is None:
-                del querystring[i]
-            else:
-                querystring[i] = replacement
-
-        return querystring
-
-    def _filter_uri(self, uri: str) -> str:
-        for i in self.filter_uri:
-            replacement = None
-            if isinstance(i, (list, tuple)):
-                i, replacement = i
-
-            if i not in uri:
-                continue
-
-            if replacement is None:
-                uri = uri.replace(i, "")
-            else:
-                uri = uri.replace(i, replacement)
-
-        return uri
-
-    def _decode_body(self, body: bytes) -> str:
+    def _decode_body(self, body: bytes) -> str | Any:
         try:
-            return body.decode()
+            decoded_body = body.decode()
         except UnicodeDecodeError:
-            return str(body)
+            decoded_body = str(body)
+
+        try:
+            return json.loads(decoded_body)
+        except json.JSONDecodeError:
+            pass
+
+        return decoded_body
+
+    def _calculate_body_length(self, body: str | dict) -> str | None:
+        """Calculate the body length for a response.
+
+        Args:
+            body (str | dict): The response body.
+
+        Returns:
+            str | None: The body length as an integer string, or None if the body is binary.
+        """
+        if isinstance(body, str) and body.startswith("b'"):
+            return None
+
+        return str(len(str(body)))
+
+
+class ReplayURIMatcher(URIMatcher):
+    regex = None
+    info = None
+
+    def __init__(
+        self,
+        uri,
+        entries,
+        match_querystring=False,
+        priority=0,
+        filter_uri=(),
+        filter_querystring=(),
+    ):
+        super().__init__(uri, entries, match_querystring, priority)
+
+        self.filter_uri = filter_uri
+        self.filter_querystring = filter_querystring
+
+    def matches(self, info):
+        if self.info:
+            # Query string is not considered when comparing info objects, compare separately
+            return self.info_matches(info) and (
+                not self._match_querystring or self.query_matches(info)
+            )
+        else:
+            return self.regex.search(
+                info.full_url(use_querystring=self._match_querystring)
+            )
+
+    def info_matches(self, info):
+        filtered_uri = _filter_uri(info.full_url(), self.filter_uri)
+
+        return URIInfo.from_uri(filtered_uri, info.last_request) == self.info
+
+    def query_matches(self, info):
+        filtered_query = urlencode(
+            _filter_querystring(info.query, self.filter_querystring), doseq=True
+        )
+
+        return self.info.query == filtered_query

@@ -15,11 +15,16 @@
     },
     "response": {
       "status": 200,
-      "body": "{\n  \"Content-Length\": \"98\", \n  \"Content-Type\": \"application/json\", \n  \"bar\": \"2\", \n  \"foo\": \"1\"\n}\n",
-      "headers": {
-        "Date": "Wed, 10 Jan 2024 22:12:12 GMT",
-        "Content-Type": "application/json",
+      "body": {
         "Content-Length": "98",
+        "Content-Type": "application/json",
+        "bar": "2",
+        "foo": "1"
+      },
+      "headers": {
+        "Date": "Fri, 12 Jan 2024 00:30:19 GMT",
+        "Content-Type": "application/json",
+        "Content-Length": "84",
         "Connection": "close",
         "Server": "gunicorn/19.9.0",
         "bar": "2",
