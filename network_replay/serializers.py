@@ -3,12 +3,20 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING
 
+import yaml
+
+try:
+    from yaml import CDumper as Dumper
+    from yaml import CLoader as Loader
+except ImportError:
+    from yaml import Dumper, Loader
+
 if TYPE_CHECKING:
     from pathlib import Path
 
 
 class Serializer:
-    suffix = ".txt"
+    suffix = None
 
     def __init__(self, path: Path) -> None:
         self.path = path.with_suffix(self.suffix)
@@ -34,3 +42,13 @@ class JSONSerializer(Serializer):
 
     def deserialize(self) -> list[dict]:
         return json.load(self.path.open())
+
+
+class YAMLSerializer(Serializer):
+    suffix = ".yaml"
+
+    def serialize(self, obj) -> None:
+        return yaml.dump(obj, self.path.open(mode="w"), Dumper=Dumper)
+
+    def deserialize(self) -> list[dict]:
+        return yaml.load(self.path.open(), Loader=Loader)

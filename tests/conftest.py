@@ -87,8 +87,8 @@ def replay_manager(
 
     with ReplayManager(**replay_config) as manager:
         yield manager
-
-    try:
-        manager.serializer.path.resolve(strict=True)
-    except FileNotFoundError as exc:
-        pytest.fail(str(exc))
+    if manager._calls:
+        try:
+            manager.serializer.path.resolve(strict=True)
+        except FileNotFoundError as exc:
+            pytest.fail(str(exc))

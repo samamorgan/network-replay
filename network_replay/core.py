@@ -119,7 +119,7 @@ class ReplayManager(httpretty):
         priority=0,
         **headers,
     ):
-        """Override of `httpretty.core.register_uri` to support filtering."""
+        """Override of `httpretty.core.register_uri` to support alternative filtering."""
         uri_is_string = isinstance(uri, str)
 
         if uri_is_string and re.search(r"^\w+://[^/]+[.]\w{2,}(:[0-9]+)?$", uri):
@@ -271,9 +271,6 @@ class ReplayManager(httpretty):
 
 
 class ReplayURIMatcher(URIMatcher):
-    regex = None
-    info = None
-
     def __init__(
         self,
         uri,
@@ -290,14 +287,8 @@ class ReplayURIMatcher(URIMatcher):
 
     def matches(self, info):
         if self.info:
-            # Query string is not considered when comparing info objects, compare separately
-            return self.info_matches(info) and (
-                not self._match_querystring or self.query_matches(info)
-            )
-        else:
-            return self.regex.search(
-                info.full_url(use_querystring=self._match_querystring)
-            )
+            return self.info_matches(info) and self.query_matches(info)
+        return self.regex.search(info.full_url(use_querystring=self._match_querystring))
 
     def info_matches(self, info):
         filtered_uri = _filter_uri(info.full_url(), self.filter_uri)
@@ -305,6 +296,9 @@ class ReplayURIMatcher(URIMatcher):
         return URIInfo.from_uri(filtered_uri, info.last_request) == self.info
 
     def query_matches(self, info):
+        if not self._match_querystring:
+            return True
+
         filtered_query = urlencode(
             _filter_querystring(info.query, self.filter_querystring), doseq=True
         )

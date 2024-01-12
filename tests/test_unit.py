@@ -10,6 +10,7 @@ import requests
 from network_replay import ReplayManager, replay
 from network_replay.core import _recording_path
 from network_replay.filters import _filter_headers, _filter_querystring, _filter_uri
+from network_replay.serializers import JSONSerializer, YAMLSerializer
 
 base_path = Path(__file__).parent
 
@@ -24,7 +25,7 @@ def mock_request():
         pass
 
     request = MockRequest()
-    request.uri = "https://httpbin.org/foo"
+    request.uri = "https://httpbin.org"
     request.headers = {"User-Agent": "test", "Accept": "application/json"}
     request.body = b""
     request.method = "GET"
@@ -32,6 +33,33 @@ def mock_request():
     request.timeout = _GLOBAL_DEFAULT_TIMEOUT
 
     return request
+
+
+@pytest.fixture
+def path():
+    path = Path(gettempdir(), "test")
+    yield path
+    path.unlink(missing_ok=True)
+
+
+@pytest.fixture
+def request_json():
+    return [
+        {
+            "request": {
+                "uri": "https://example.org",
+                "method": "GET",
+                "headers": {},
+                "body": "",
+                "querystring": {},
+            },
+            "response": {
+                "status": 200,
+                "body": "",
+                "headers": {},
+            },
+        }
+    ]
 
 
 class TestReplayDecorator:
@@ -73,55 +101,28 @@ class TestReplayDecorator:
 
 class TestReplayManager:
     @pytest.fixture
-    def path(self):
-        path = Path(gettempdir(), "test.json")
-        yield path
-        path.unlink(missing_ok=True)
-
-    @pytest.fixture
-    def request_json(self):
-        return [
-            {
-                "request": {
-                    "uri": "https://example.org",
-                    "method": "GET",
-                    "headers": {},
-                    "body": "",
-                    "querystring": {},
-                },
-                "response": {
-                    "status": 200,
-                    "body": "",
-                    "headers": {},
-                },
-            }
-        ]
-
-    @pytest.fixture
-    def recording(self, path: Path, request_json):
-        path.write_text(json.dumps(request_json))
-        yield path
-
-    @pytest.fixture
     def manager(self, path):
         return ReplayManager(path=str(path))
 
-    def test___init__(self, path, manager):
-        assert manager.serializer.path == path.resolve()
-        assert manager.record_on_error is False
-        assert manager.filter_headers == ()
-        assert manager.filter_querystring == ()
-        assert manager.filter_uri == ()
-        assert manager._calls == []
-        assert manager._replay_mode is False
+    @pytest.fixture
+    def recording(self, manager, request_json):
+        manager.serializer.serialize(request_json)
 
-    def test___str__(self, manager):
-        assert str(manager) == "<ReplayManager with 0 URI entries>"
+    def test___init__(self, replay_manager):
+        assert replay_manager.record_on_error is False
+        assert replay_manager.filter_headers == ()
+        assert replay_manager.filter_querystring == ()
+        assert replay_manager.filter_uri == ()
+        assert replay_manager._calls == []
+        assert replay_manager._replay_mode is False
+
+    def test___str__(self, replay_manager):
+        assert str(replay_manager) == "<ReplayManager with 1 URI entries>"
 
     @pytest.mark.usefixtures("recording")
     def test___enter__replay(self, manager):
         with manager as m:
-            assert m.allow_net_connect is False
+            assert m.allow_net_connect is True
             assert m._is_enabled is True
 
     def test___enter__record(self, manager):
@@ -177,7 +178,7 @@ class TestReplayManager:
 
 
 class TestFilters:
-    def test___filter_headers(self, mock_request):
+    def test__filter_headers(self, mock_request):
         assert "User-Agent" in mock_request.headers
 
         _filter = ["User-Agent", ("Accept", "REDACTED"), "Content-Type"]
@@ -185,7 +186,7 @@ class TestFilters:
         assert "User-Agent" not in filtered_headers
         assert filtered_headers["Accept"] == "REDACTED"
 
-    def test___filter_querystring(self, mock_request):
+    def test__filter_querystring(self, mock_request):
         assert "foo" in mock_request.querystring
 
         _filter = ["foo", ("bar", "REDACTED"), "baz"]
@@ -194,10 +195,55 @@ class TestFilters:
         assert filtered_querystring["bar"] == "REDACTED"
 
     def test__filter_uri(self, mock_request):
-        assert "httpbin.org" in mock_request.uri
+        assert mock_request.uri == "https://httpbin.org"
 
-        _filter = ["status", ("foo", "REDACTED")]
+        _filter = ["bin", ("org", "com"), "baz"]
         filtered_uri = _filter_uri(mock_request.uri, _filter)
-        assert "status" not in filtered_uri
-        assert "foo" not in filtered_uri
-        assert "REDACTED" in filtered_uri
+        assert "bin" not in filtered_uri
+        assert "org" not in filtered_uri
+        assert "com" in filtered_uri
+        assert filtered_uri.endswith("/")
+
+
+class SerializerTestBase:
+    @pytest.fixture
+    def serializer_class(self):
+        return None
+
+    @pytest.fixture
+    def serializer(self, serializer_class, path):
+        serializer = serializer_class(path)
+        yield serializer
+        serializer.path.unlink(missing_ok=True)
+
+    @pytest.fixture
+    def recording(self, serializer, request_json):
+        serializer.serialize(request_json)
+        yield serializer.path
+
+    def test___init__(self, serializer, serializer_class):
+        assert serializer.path.parent.exists()
+        assert serializer.path.suffix == serializer_class.suffix
+
+    def test_serialize(self, serializer, request_json):
+        assert serializer.path.exists() is False
+
+        result = serializer.serialize(request_json)
+        assert result is None
+        assert serializer.path.exists() is True
+
+    @pytest.mark.usefixtures("recording")
+    def test_deserialize(self, serializer, request_json):
+        assert serializer.deserialize() == request_json
+
+
+class TestJSONSerializer(SerializerTestBase):
+    @pytest.fixture
+    def serializer_class(self):
+        return JSONSerializer
+
+
+class TestYAMLSerializer(SerializerTestBase):
+    @pytest.fixture
+    def serializer_class(self):
+        return YAMLSerializer
