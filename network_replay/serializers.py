@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 
 class Serializer:
-    suffix = None
+    suffix: str
 
     def __init__(self, path: Path) -> None:
         self.path = path.with_suffix(self.suffix)

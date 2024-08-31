@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Generator
 
 import pytest
 
@@ -54,8 +54,13 @@ def replay_filter_uri() -> tuple:
 
 
 @pytest.fixture
-def replay_serializer() -> JSONSerializer:
+def replay_serializer() -> type[JSONSerializer]:
     return JSONSerializer
+
+
+@pytest.fixture
+def replay_record_mode() -> str:
+    return "once"
 
 
 @pytest.fixture
@@ -66,6 +71,7 @@ def replay_config(
     replay_filter_querystring: tuple,
     replay_filter_uri: tuple,
     replay_serializer: Serializer,
+    replay_record_mode: str,
 ) -> dict:
     return {
         "path": replay_recording_path,
@@ -74,21 +80,30 @@ def replay_config(
         "filter_querystring": replay_filter_querystring,
         "filter_uri": replay_filter_uri,
         "serializer": replay_serializer,
+        "record_mode": replay_record_mode,
     }
 
 
 @pytest.fixture
-def replay_manager(
+def _replay_manager(
     replay_config: dict, request: pytest.FixtureRequest
 ) -> ReplayManager:
     replay_marker = request.node.get_closest_marker("network_replay")
     if replay_marker:
         replay_config.update(replay_marker.kwargs)
 
-    with ReplayManager(**replay_config) as manager:
+    return ReplayManager(**replay_config)
+
+
+@pytest.fixture
+def replay_manager(
+    _replay_manager: ReplayManager,
+) -> Generator[ReplayManager, None, None]:
+    with _replay_manager as manager:
         yield manager
-    if manager._calls:
+
+    if manager._cycle_sequence:
         try:
-            manager.serializer.path.resolve(strict=True)
+            manager.path.resolve(strict=True)
         except FileNotFoundError as exc:
             pytest.fail(str(exc))

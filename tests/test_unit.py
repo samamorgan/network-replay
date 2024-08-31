@@ -1,18 +1,27 @@
-import json
+from __future__ import annotations
+
+import inspect
+from contextlib import nullcontext
 from http import HTTPStatus
 from pathlib import Path
-from socket import _GLOBAL_DEFAULT_TIMEOUT
 from tempfile import gettempdir
+from typing import TYPE_CHECKING
 
 import pytest
 import requests
+from httpretty.core import SOCKET_GLOBAL_DEFAULT_TIMEOUT
 
 from network_replay import ReplayManager, replay
-from network_replay.core import _recording_path
+from network_replay.core import RecordMode, _recording_path
+from network_replay.exceptions import RecordingDisabledError
 from network_replay.filters import _filter_headers, _filter_querystring, _filter_uri
 from network_replay.serializers import JSONSerializer, YAMLSerializer
 
-base_path = Path(__file__).parent
+if TYPE_CHECKING:
+    from typing import ContextManager
+
+
+BASE_PATH = Path(__file__).parent
 
 
 def _get_200():
@@ -30,16 +39,9 @@ def mock_request():
     request.body = b""
     request.method = "GET"
     request.querystring = {"foo": 1, "bar": 2}
-    request.timeout = _GLOBAL_DEFAULT_TIMEOUT
+    request.timeout = SOCKET_GLOBAL_DEFAULT_TIMEOUT
 
     return request
-
-
-@pytest.fixture
-def path():
-    path = Path(gettempdir(), "test")
-    yield path
-    path.unlink(missing_ok=True)
 
 
 @pytest.fixture
@@ -62,21 +64,43 @@ def request_json():
     ]
 
 
+@pytest.fixture
+def path():
+    path = Path(gettempdir(), "test")
+    yield path
+    path.unlink(missing_ok=True)
+
+
 class TestReplayDecorator:
     @pytest.mark.parametrize(
         "directory",
         ["recordings", "archive"],
     )
-    def test_method_replay_path(self, directory):
+    def test_method_directory(self, directory):
         @replay(directory=directory)
         def get_200():
             return _get_200()
 
         response = get_200()
         assert response.status_code == HTTPStatus.OK
-        assert (base_path / directory / "get_200.json").exists()
+        assert (BASE_PATH / directory / "get_200.json").exists()
 
-    def test_class_method_replay_path(self):
+    def test_replay_manager_kwargs(self, replay_config):
+        @replay(**replay_config)
+        def get_manager():
+            return inspect.currentframe().f_back.f_locals["_"]
+
+        manager = get_manager()
+        assert manager.path.parent == replay_config["path"].parent
+        assert manager.path.stem == replay_config["path"].stem
+        assert manager.record_on_error == replay_config["record_on_error"]
+        assert manager.filter_headers == replay_config["filter_headers"]
+        assert manager.filter_querystring == replay_config["filter_querystring"]
+        assert manager.filter_uri == replay_config["filter_uri"]
+        assert manager.serializer.__class__ == replay_config["serializer"]
+        assert manager.record_mode == RecordMode(replay_config["record_mode"])
+
+    def test_class_method_directory(self):
         class Requester:
             @replay
             def get_200(self):
@@ -84,45 +108,59 @@ class TestReplayDecorator:
 
         response = Requester().get_200()
         assert response.status_code == HTTPStatus.OK
-        assert (base_path / "recordings" / "Requester.get_200.json").exists()
+        assert (BASE_PATH / "recordings" / "Requester.get_200.json").exists()
 
-    def test__recording_path(self):
+
+class TestRecordingPath:
+    def test__recording_path_nonlocal(self):
         path = _recording_path(_get_200, "recordings")
         assert "<locals>" not in _get_200.__qualname__
-        assert path == base_path / "recordings" / "_get_200.json"
+        assert path == BASE_PATH / "recordings" / "_get_200.json"
 
+    def test__recording_path_local(self):
         def get_200():
             pass
 
         path = _recording_path(get_200, "recordings")
         assert "<locals>" in get_200.__qualname__
-        assert path == base_path / "recordings" / "get_200.json"
+        assert path == BASE_PATH / "recordings" / "get_200.json"
 
 
 class TestReplayManager:
     @pytest.fixture
     def manager(self, path):
-        return ReplayManager(path=str(path))
+        manager = ReplayManager(path=str(path))
+        yield manager
+        manager.path.unlink(missing_ok=True)
 
     @pytest.fixture
     def recording(self, manager, request_json):
         manager.serializer.serialize(request_json)
 
-    def test___init__(self, replay_manager):
-        assert replay_manager.record_on_error is False
-        assert replay_manager.filter_headers == ()
-        assert replay_manager.filter_querystring == ()
-        assert replay_manager.filter_uri == ()
-        assert replay_manager._calls == []
-        assert replay_manager._replay_mode is False
+    def test___init__(self, manager):
+        assert manager.record_on_error is False
+        assert manager.filter_headers == ()
+        assert manager.filter_querystring == ()
+        assert manager.filter_uri == ()
+        assert manager.record_mode == RecordMode.ONCE
+        assert manager._cycle_sequence == []
 
-    def test___str__(self, replay_manager):
-        assert str(replay_manager) == "<ReplayManager with 1 URI entries>"
+    def test_path(self, manager):
+        assert manager.path == manager.serializer.path
+
+    def test_recording_exists(self, manager):
+        assert manager.recording_exists is False
+
+        manager.path.touch()
+        assert manager.recording_exists is True
+
+    def test___str__(self, manager):
+        assert str(manager) == "<ReplayManager with 0 URI entries>"
 
     @pytest.mark.usefixtures("recording")
     def test___enter__replay(self, manager):
         with manager as m:
-            assert m.allow_net_connect is True
+            assert m.allow_net_connect is False
             assert m._is_enabled is True
 
     def test___enter__record(self, manager):
@@ -138,19 +176,19 @@ class TestReplayManager:
 
     def test___exit___record(self, manager):
         with manager as m:
-            m._calls.append("test")
+            m._cycle_sequence.append("test")
 
         assert m._is_enabled is False
-        assert manager.serializer.path.exists()
+        assert manager.path.exists()
 
     def test___exit___record_on_error(self, manager):
         with pytest.raises(Exception):
             with manager as m:
-                m.calls.append("test")
+                m._cycle_sequence.append("test")
                 raise Exception
 
         assert m._is_enabled is False
-        assert not manager.serializer.path.exists()
+        assert not manager.path.exists()
 
     @pytest.mark.usefixtures("recording")
     def test__register_recorded_requests(self, manager: ReplayManager, request_json):
@@ -164,7 +202,7 @@ class TestReplayManager:
         assert status == HTTPStatus.OK
 
     @pytest.mark.parametrize(
-        "body, should_decode",
+        ["body", "should_decode"],
         [(b"test", True), (b"\xff", False)],
     )
     def test__decode_body(self, body, should_decode, manager):
@@ -175,6 +213,33 @@ class TestReplayManager:
             assert decoded == body.decode()
         else:
             assert decoded == str(body)
+
+    @pytest.mark.parametrize(
+        ["record_mode", "expectation"],
+        [
+            (RecordMode.APPEND, nullcontext()),
+            (
+                RecordMode.BLOCK,
+                pytest.raises(RecordingDisabledError, match="Recording is disabled"),
+            ),
+            (RecordMode.ONCE, nullcontext()),
+            (RecordMode.OVERWRITE, nullcontext()),
+            (
+                RecordMode.REPLAY_ONLY,
+                pytest.raises(RecordingDisabledError, match="Recording is disabled"),
+            ),
+        ],
+    )
+    def test_record_modes(
+        self,
+        manager: ReplayManager,
+        mock_request,
+        record_mode: RecordMode,
+        expectation: ContextManager,
+    ):
+        manager.record_mode = record_mode
+        with expectation:
+            manager._record_request(mock_request, "https://httpbin.org", {})
 
 
 class TestFilters:

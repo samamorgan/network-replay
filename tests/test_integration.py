@@ -20,8 +20,8 @@ REQUEST_METHODS = {
 
 
 class BaseClientTest:
-    status_code_property = ""
-    image_get_kwargs = {}
+    status_code_property: str = ""
+    image_get_kwargs: dict = {}
 
     def make_request(self, method, url, *args, **kwargs):
         raise NotImplementedError("This method must be overridden by subclasses")
@@ -46,10 +46,10 @@ class BaseClientTest:
         response = self.make_request("GET", REQUEST_METHODS["GET"])
         assert getattr(response, self.status_code_property) == HTTPStatus.OK
 
-        request = replay_manager._calls[0]["request"]
+        request = replay_manager._cycle_sequence[0]["request"]
         assert "User-Agent" not in request["headers"]
 
-        response = replay_manager._calls[0]["response"]
+        response = replay_manager._cycle_sequence[0]["response"]
         assert response["headers"]["Content-Type"] == "REDACTED"
 
     @pytest.mark.network_replay(filter_querystring=["foo", ("bar", "REDACTED")])
@@ -57,7 +57,7 @@ class BaseClientTest:
         response = self.make_request("GET", f"{HTTPBIN}/response-headers?foo=1&bar=2")
         assert getattr(response, self.status_code_property) == HTTPStatus.OK
 
-        querystring = replay_manager._calls[0]["request"]["querystring"]
+        querystring = replay_manager._cycle_sequence[0]["request"]["querystring"]
         assert "foo" not in querystring
         assert querystring["bar"] == "REDACTED"
 
@@ -66,7 +66,7 @@ class BaseClientTest:
         response = self.make_request("GET", REQUEST_METHODS["GET"])
         assert getattr(response, self.status_code_property) == HTTPStatus.OK
 
-        request = replay_manager._calls[0]["request"]
+        request = replay_manager._cycle_sequence[0]["request"]
         assert "get" not in request["uri"]
 
     @pytest.mark.network_replay

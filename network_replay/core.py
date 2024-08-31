@@ -2,33 +2,45 @@ import json
 import logging
 import re
 from ast import literal_eval
+from enum import Enum
 from functools import wraps
 from pathlib import Path
-from socket import _GLOBAL_DEFAULT_TIMEOUT
 from typing import Any, Callable
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 from urllib.request import Request, urlopen
 
-from httpretty.core import MULTILINE_ANY_REGEX, URIInfo, URIMatcher, httpretty
+from httpretty.core import (
+    MULTILINE_ANY_REGEX,
+    SOCKET_GLOBAL_DEFAULT_TIMEOUT,
+    URIInfo,
+    URIMatcher,
+    httpretty,
+)
 
+from .exceptions import RecordingDisabledError
 from .filters import _filter_headers, _filter_querystring, _filter_uri
 from .serializers import JSONSerializer
 
 logger = logging.getLogger(__name__)
 
 
-def replay(func: Callable = None, *, directory="recordings") -> Callable:
+def replay(
+    func: Callable | None = None, *, directory="recordings", **manager_kwargs
+) -> Callable:
     def inner(func: Callable):
         path = _recording_path(func, directory)
 
+        nonlocal manager_kwargs
+        manager_kwargs = {"path": path, **manager_kwargs}
+
         @wraps(func)
         def wrapper(*args, **kwargs):
-            with ReplayManager(path):
+            with ReplayManager(**manager_kwargs) as _:
                 return func(*args, **kwargs)
 
         return wrapper
 
-    if func:
+    if func is not None:
         return inner(func)
     return inner
 
@@ -44,6 +56,19 @@ def _recording_path(func, subdir) -> Path:
     return Path(func.__code__.co_filename).parent / subdir / f"{qualname}.json"
 
 
+class RecordMode(Enum):
+    APPEND = "append"
+    """Recording on, replay on, re-write the recording."""
+    BLOCK = "block"
+    """Recording off, replay off, raise an error on any request."""
+    ONCE = "once"
+    """Recording on, replay on, raise an error on new requests."""
+    OVERWRITE = "overwrite"
+    """Recording on, replay off, overwrite any existing recording."""
+    REPLAY_ONLY = "replay_only"
+    """Recording off, replay on, raise an error on new requests."""
+
+
 class ReplayManager(httpretty):
     def __init__(
         self,
@@ -53,14 +78,16 @@ class ReplayManager(httpretty):
         filter_querystring: list | tuple = (),
         filter_uri: list | tuple = (),
         serializer: Callable = JSONSerializer,
+        record_mode: str = "once",
     ):
         self.record_on_error = record_on_error
         self.filter_headers = filter_headers
         self.filter_querystring = filter_querystring
         self.filter_uri = filter_uri
         self.serializer = serializer(Path(path).resolve())
+        self.record_mode = RecordMode(record_mode)
 
-        self._calls = []
+        self._cycle_sequence: list[dict] = []
 
     def __str__(self):
         return f"<{self.__class__.__name__} with {len(self._entries)} URI entries>"
@@ -68,8 +95,8 @@ class ReplayManager(httpretty):
     def __enter__(self):
         self.reset()
 
-        if self._replay_mode:
-            logger.debug(f"Replaying interactions from {self.serializer.path}")
+        if self.recording_exists:
+            logger.debug(f"Replaying interactions from {self.path}")
             self.enable(allow_net_connect=False)
             self._register_recorded_requests()
 
@@ -91,20 +118,40 @@ class ReplayManager(httpretty):
             logger.debug("Not recording due to error")
             return
 
-        if not self._calls:
-            logger.debug("No interactions to record")
-            return
-
-        if self._replay_mode:
+        if self.recording_exists:
             logger.debug("No recording in replay mode")
             return
 
-        logger.debug(f"Writing interactions to {self.serializer.path}")
-        self.serializer.serialize(self._calls)
+        if not self.can_record:
+            logger.debug("Recording is disabled")
+            return
+
+        logger.debug(f"Writing interactions to {self.path}")
+        self.serializer.serialize(self._cycle_sequence)
 
     @property
-    def _replay_mode(self):
-        return self.serializer.path.exists()
+    def can_replay(self) -> bool:
+        return self.record_mode in (
+            RecordMode.APPEND,
+            RecordMode.ONCE,
+            RecordMode.REPLAY_ONLY,
+        )
+
+    @property
+    def can_record(self) -> bool:
+        return self.record_mode in (
+            RecordMode.APPEND,
+            RecordMode.ONCE,
+            RecordMode.OVERWRITE,
+        )
+
+    @property
+    def path(self) -> Path:
+        return self.serializer.path
+
+    @property
+    def recording_exists(self) -> bool:
+        return self.path.exists()
 
     def register_uri(
         self,
@@ -160,9 +207,9 @@ class ReplayManager(httpretty):
         Since serializing responses modifies the original response length, we need to
         dynamically calculate the Content-Length header to pass httpretty's validation.
         """
-        self._calls = self.serializer.deserialize()
+        self._cycle_sequence = self.serializer.deserialize()
 
-        for item in self._calls:
+        for item in self._cycle_sequence:
             body = str(item["response"]["body"])
             if body.startswith("b'"):
                 body = literal_eval(body)
@@ -186,6 +233,11 @@ class ReplayManager(httpretty):
             )
 
     def _record_request(self, request, uri, headers):
+        if not self.can_record:
+            raise RecordingDisabledError(
+                f"Recording is disabled with {self.record_mode}"
+            )
+
         self.disable()
 
         _request = Request(
@@ -194,7 +246,9 @@ class ReplayManager(httpretty):
             headers=request.headers,
             method=request.method,
         )
-        response = urlopen(_request, timeout=request.timeout or _GLOBAL_DEFAULT_TIMEOUT)
+        response = urlopen(
+            _request, timeout=request.timeout or SOCKET_GLOBAL_DEFAULT_TIMEOUT
+        )
         response_body = response.read()
         decoded_response_body = self._decode_body(response_body)
 
@@ -220,7 +274,7 @@ class ReplayManager(httpretty):
             if body_length is not None:
                 response_dict["headers"]["Content-Length"] = body_length
 
-        self._calls.append(
+        self._cycle_sequence.append(
             {
                 "request": request_dict,
                 "response": response_dict,
