@@ -6,13 +6,20 @@
   "configurations": [
     {
       "name": "Python: Debug Tests",
-      "type": "python",
-      "request": "launch",
-      "program": "${file}",
-      "purpose": ["debug-test"],
       "console": "integratedTerminal",
-      "presentation": { "hidden": true },
-      "justMyCode": false
-    }
+      "env": {
+        "PYTEST_ADDOPTS": "--no-cov"
+      },
+      "justMyCode": false,
+      "presentation": {
+        "hidden": true
+      },
+      "program": "${file}",
+      "purpose": [
+        "debug-test"
+      ],
+      "request": "launch",
+      "type": "debugpy",
+    },
   ]
 }

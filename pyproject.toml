@@ -31,6 +31,7 @@ build-backend = "poetry.core.masonry.api"
 testpaths = "tests"
 
 [tool.pytest.ini_options]
+addopts = ["--cov=network_replay", "--cov-report=term-missing:skip-covered"]
 markers = [
     "network_replay: Records network interactions and verifies them on replay",
 ]
