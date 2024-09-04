@@ -1,13 +1,19 @@
+from __future__ import annotations
+
 import re
-from urllib.parse import parse_qs
+from typing import TYPE_CHECKING
+from urllib.parse import parse_qs, urlparse, urlunparse
+
+if TYPE_CHECKING:
+    from typing import Any
 
 
-def _filter_headers(headers, _filter):
-    for i in _filter:
-        replacement = None
-        if isinstance(i, (list, tuple)):
-            i, replacement = i
+def _filter_headers(
+    headers: dict[str, str], _filter: dict[str, str | None]
+) -> dict[str, str]:
+    headers = dict(headers)
 
+    for i, replacement in _filter.items():
         if i not in headers:
             continue
 
@@ -19,15 +25,13 @@ def _filter_headers(headers, _filter):
     return headers
 
 
-def _filter_querystring(querystring, _filter):
+def _filter_querystring(
+    querystring: dict[str, Any] | str, _filter: dict[str, str | None]
+) -> dict[str, Any]:
     if isinstance(querystring, str):
         querystring = dict(parse_qs(querystring))
 
-    for i in _filter:
-        replacement = None
-        if isinstance(i, (list, tuple)):
-            i, replacement = i
-
+    for i, replacement in _filter.items():
         if i not in querystring:
             continue
 
@@ -39,12 +43,16 @@ def _filter_querystring(querystring, _filter):
     return querystring
 
 
-def _filter_uri(uri: str, _filter) -> str:
-    for i in _filter:
-        replacement = None
-        if isinstance(i, (list, tuple)):
-            i, replacement = i
+def _remove_querystring(uri: str) -> str:
+    scheme, netloc, path, params, _, fragment = urlparse(uri)
 
+    return urlunparse((scheme, netloc, path, params, "", fragment))
+
+
+def _filter_uri(uri: str, _filter: dict[str, str | None]) -> str:
+    uri = _remove_querystring(uri)
+
+    for i, replacement in _filter.items():
         if i not in uri:
             continue
 

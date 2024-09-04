@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 import requests
-from httpretty.core import SOCKET_GLOBAL_DEFAULT_TIMEOUT
+from httpretty.core import HTTPrettyRequest, fakesock
 
 from network_replay import ReplayManager, replay
 from network_replay.core import RecordMode, _recording_path
@@ -18,10 +18,7 @@ from network_replay.filters import _filter_headers, _filter_querystring, _filter
 from network_replay.serializers import JSONSerializer, YAMLSerializer
 
 if TYPE_CHECKING:
-    from typing import ContextManager
-
-
-BASE_PATH = Path(__file__).parent
+    from typing import Any, ContextManager, Generator
 
 
 def _get_200():
@@ -29,23 +26,26 @@ def _get_200():
 
 
 @pytest.fixture
-def mock_request():
-    class MockRequest:
-        pass
+def mock_request() -> HTTPrettyRequest:
+    sock = fakesock.socket()
+    sock.is_http = True
 
-    request = MockRequest()
-    request.uri = "https://httpbin.org"
-    request.headers = {"User-Agent": "test", "Accept": "application/json"}
-    request.body = b""
-    request.method = "GET"
-    request.querystring = {"foo": 1, "bar": 2}
-    request.timeout = SOCKET_GLOBAL_DEFAULT_TIMEOUT
-
-    return request
+    return HTTPrettyRequest(
+        headers="\r\n".join(
+            (
+                "GET /?foo=1&bar=2 HTTP/1.1",
+                "Host: httpbin.org",
+                "Accept: application/json",
+                "Connection: keep-alive",
+                "User-Agent: test",
+            )
+        ).encode(),
+        sock=sock,
+    )
 
 
 @pytest.fixture
-def request_json():
+def request_json() -> list[dict[str, Any]]:
     return [
         {
             "request": {
@@ -65,7 +65,12 @@ def request_json():
 
 
 @pytest.fixture
-def path():
+def base_path():
+    return Path(__file__).parent
+
+
+@pytest.fixture
+def path() -> Generator[Path, None, None]:
     path = Path(gettempdir(), "test")
     yield path
     path.unlink(missing_ok=True)
@@ -76,14 +81,14 @@ class TestReplayDecorator:
         "directory",
         ["recordings", "archive"],
     )
-    def test_method_directory(self, directory):
+    def test_method_directory(self, directory: str, base_path: Path):
         @replay(directory=directory)
         def get_200():
             return _get_200()
 
         response = get_200()
         assert response.status_code == HTTPStatus.OK
-        assert (BASE_PATH / directory / "get_200.json").exists()
+        assert (base_path / directory / "get_200.json").exists()
 
     def test_replay_manager_kwargs(self, replay_config):
         @replay(**replay_config)
@@ -100,7 +105,7 @@ class TestReplayDecorator:
         assert manager.serializer.__class__ == replay_config["serializer"]
         assert manager.record_mode == RecordMode(replay_config["record_mode"])
 
-    def test_class_method_directory(self):
+    def test_class_method_directory(self, base_path: Path):
         class Requester:
             @replay
             def get_200(self):
@@ -108,22 +113,22 @@ class TestReplayDecorator:
 
         response = Requester().get_200()
         assert response.status_code == HTTPStatus.OK
-        assert (BASE_PATH / "recordings" / "Requester.get_200.json").exists()
+        assert (base_path / "recordings" / "Requester.get_200.json").exists()
 
 
 class TestRecordingPath:
-    def test__recording_path_nonlocal(self):
+    def test__recording_path_nonlocal(self, base_path: Path):
         path = _recording_path(_get_200, "recordings")
         assert "<locals>" not in _get_200.__qualname__
-        assert path == BASE_PATH / "recordings" / "_get_200.json"
+        assert path == base_path / "recordings" / "_get_200.json"
 
-    def test__recording_path_local(self):
+    def test__recording_path_local(self, base_path: Path):
         def get_200():
             pass
 
         path = _recording_path(get_200, "recordings")
         assert "<locals>" in get_200.__qualname__
-        assert path == BASE_PATH / "recordings" / "get_200.json"
+        assert path == base_path / "recordings" / "get_200.json"
 
 
 class TestReplayManager:
@@ -139,9 +144,9 @@ class TestReplayManager:
 
     def test___init__(self, manager):
         assert manager.record_on_error is False
-        assert manager.filter_headers == ()
-        assert manager.filter_querystring == ()
-        assert manager.filter_uri == ()
+        assert manager.filter_headers == {}
+        assert manager.filter_querystring == {}
+        assert manager.filter_uri == {}
         assert manager.record_mode == RecordMode.ONCE
         assert manager._cycle_sequence == []
 
@@ -242,11 +247,15 @@ class TestReplayManager:
             manager._record_request(mock_request, "https://httpbin.org", {})
 
 
+class TestReplayURIMatcher:
+    pass
+
+
 class TestFilters:
     def test__filter_headers(self, mock_request):
         assert "User-Agent" in mock_request.headers
 
-        _filter = ["User-Agent", ("Accept", "REDACTED"), "Content-Type"]
+        _filter = {"User-Agent": None, "Accept": "REDACTED", "Content-Type": None}
         filtered_headers = _filter_headers(mock_request.headers, _filter)
         assert "User-Agent" not in filtered_headers
         assert filtered_headers["Accept"] == "REDACTED"
@@ -254,16 +263,16 @@ class TestFilters:
     def test__filter_querystring(self, mock_request):
         assert "foo" in mock_request.querystring
 
-        _filter = ["foo", ("bar", "REDACTED"), "baz"]
+        _filter = {"foo": None, "bar": "REDACTED", "baz": None}
         filtered_querystring = _filter_querystring(mock_request.querystring, _filter)
         assert "foo" not in filtered_querystring
-        assert filtered_querystring["bar"] == "REDACTED"
+        assert filtered_querystring["bar"] == _filter["bar"]
 
     def test__filter_uri(self, mock_request):
-        assert mock_request.uri == "https://httpbin.org"
+        assert mock_request.url == "http://httpbin.org/?foo=1&bar=2"
 
-        _filter = ["bin", ("org", "com"), "baz"]
-        filtered_uri = _filter_uri(mock_request.uri, _filter)
+        _filter = {"bin": None, "org": "com", "baz": None}
+        filtered_uri = _filter_uri(mock_request.url, _filter)
         assert "bin" not in filtered_uri
         assert "org" not in filtered_uri
         assert "com" in filtered_uri

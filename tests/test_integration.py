@@ -20,14 +20,21 @@ REQUEST_METHODS = {
 
 
 class BaseClientTest:
-    status_code_property: str = ""
-    image_get_kwargs: dict = {}
+    @pytest.fixture
+    def status_code_property(self) -> str:
+        return "status_code"
 
-    def make_request(self, method, url, *args, **kwargs):
+    @pytest.fixture
+    def image_get_kwargs(self) -> dict:
+        return {}
+
+    @pytest.fixture
+    def request_func(self):
         raise NotImplementedError("This method must be overridden by subclasses")
 
-    def response_file(self, response):
-        return response
+    @pytest.fixture
+    def get_response_file(self):
+        return lambda response: response
 
     @pytest.mark.network_replay
     @pytest.mark.parametrize(
@@ -35,16 +42,16 @@ class BaseClientTest:
         [(method, url) for method, url in REQUEST_METHODS.items()],
         ids=list(REQUEST_METHODS),
     )
-    def test_request_methods(self, method, url):
-        response = self.make_request(method, url)
-        assert getattr(response, self.status_code_property) == HTTPStatus.OK
+    def test_request_methods(self, request_func, method, url, status_code_property):
+        response = request_func(method, url)
+        assert getattr(response, status_code_property) == HTTPStatus.OK
 
     @pytest.mark.network_replay(
-        filter_headers=["User-Agent", ("Content-Type", "REDACTED")]
+        filter_headers={"User-Agent": None, "Content-Type": "REDACTED"}
     )
-    def test_filter_headers(self, replay_manager):
-        response = self.make_request("GET", REQUEST_METHODS["GET"])
-        assert getattr(response, self.status_code_property) == HTTPStatus.OK
+    def test_filter_headers(self, request_func, replay_manager, status_code_property):
+        response = request_func("GET", REQUEST_METHODS["GET"])
+        assert getattr(response, status_code_property) == HTTPStatus.OK
 
         request = replay_manager._cycle_sequence[0]["request"]
         assert "User-Agent" not in request["headers"]
@@ -52,84 +59,99 @@ class BaseClientTest:
         response = replay_manager._cycle_sequence[0]["response"]
         assert response["headers"]["Content-Type"] == "REDACTED"
 
-    @pytest.mark.network_replay(filter_querystring=["foo", ("bar", "REDACTED")])
-    def test_filter_querystring(self, replay_manager):
-        response = self.make_request("GET", f"{HTTPBIN}/response-headers?foo=1&bar=2")
-        assert getattr(response, self.status_code_property) == HTTPStatus.OK
+    @pytest.mark.network_replay(filter_querystring={"foo": None, "bar": "REDACTED"})
+    def test_filter_querystring(
+        self, request_func, replay_manager, status_code_property
+    ):
+        response = request_func("GET", f"{HTTPBIN}/response-headers?foo=1&bar=2")
+        assert getattr(response, status_code_property) == HTTPStatus.OK
 
         querystring = replay_manager._cycle_sequence[0]["request"]["querystring"]
         assert "foo" not in querystring
         assert querystring["bar"] == "REDACTED"
 
-    @pytest.mark.network_replay(filter_uri=["/get"])
-    def test_filter_uri(self, replay_manager):
-        response = self.make_request("GET", REQUEST_METHODS["GET"])
-        assert getattr(response, self.status_code_property) == HTTPStatus.OK
+    @pytest.mark.network_replay(filter_uri={"/get": None})
+    def test_filter_uri(self, request_func, status_code_property, replay_manager):
+        response = request_func("GET", REQUEST_METHODS["GET"])
+        assert getattr(response, status_code_property) == HTTPStatus.OK
 
         request = replay_manager._cycle_sequence[0]["request"]
         assert "get" not in request["uri"]
 
     @pytest.mark.network_replay
-    def test_image_get(self):
-        response = self.make_request(
-            "GET", f"{HTTPBIN}/image/jpeg", **self.image_get_kwargs
-        )
-        assert getattr(response, self.status_code_property) == HTTPStatus.OK
+    def test_image_get(
+        self, request_func, image_get_kwargs, status_code_property, get_response_file
+    ):
+        response = request_func("GET", f"{HTTPBIN}/image/jpeg", **image_get_kwargs)
+        assert getattr(response, status_code_property) == HTTPStatus.OK
 
-        file_obj = self.response_file(response)
+        file_obj = get_response_file(response)
         image = Image.open(file_obj)
         assert image.verify() is None
 
     @pytest.mark.network_replay
-    def test_multipart_post(self):
-        response = self.make_request(
+    def test_multipart_post(self, request_func, status_code_property):
+        response = request_func(
             "POST", f"{HTTPBIN}/anything", files={"file": ("test.txt", "test")}
         )
-        assert getattr(response, self.status_code_property) == HTTPStatus.OK
+        assert getattr(response, status_code_property) == HTTPStatus.OK
 
 
 class TestHttpx(BaseClientTest):
-    status_code_property = "status_code"
-
-    def make_request(self, method, url, *args, **kwargs):
-        return httpx.request(method, url, *args, **kwargs)
+    @pytest.fixture
+    def request_func(self):
+        return httpx.request
 
 
 class TestRequests(BaseClientTest):
-    status_code_property = "status_code"
-    image_get_kwargs = {"stream": True}
-    response_file_obj = "raw"
+    @pytest.fixture
+    def image_get_kwargs(self) -> dict:
+        return {"stream": True}
 
-    def make_request(self, method, url, *args, **kwargs):
-        return requests.request(method, url, *args, **kwargs)
+    @pytest.fixture
+    def request_func(self):
+        return requests.request
 
-    def response_file(self, response):
-        return response.raw
+    @pytest.fixture
+    def get_response_file(self):
+        return lambda response: response.raw
 
 
 class TestUrllib(BaseClientTest):
-    status_code_property = "code"
+    @pytest.fixture
+    def status_code_property(self) -> str:
+        return "code"
 
-    def make_request(self, method, url, *args, **kwargs):
-        # HACK: For some reason urllib needs an explicit timeout to record requests
-        request = Request(url, method=method)
-        return urlopen(request, *args, timeout=1, **kwargs)
+    @pytest.fixture
+    def request_func(self):
+        def request(method, url, *args, **kwargs):
+            # HACK: For some reason urllib needs an explicit timeout to record requests
+            request = Request(url, method=method)
+            return urlopen(request, *args, timeout=1, **kwargs)
+
+        return request
 
     @pytest.mark.skip(reason="Don't feel like figuring out the correct logic")
-    def test_multipart_post(self):
+    def test_multipart_post(self, request_func):
         pass
 
 
 class TestUrllib3(BaseClientTest):
-    status_code_property = "status"
-    image_get_kwargs = {"preload_content": False}
+    @pytest.fixture
+    def image_get_kwargs(self) -> dict:
+        return {"preload_content": False}
 
-    def make_request(self, method, url, *args, **kwargs):
-        return urllib3.request(method, url, *args, **kwargs)
+    @pytest.fixture
+    def status_code_property(self) -> str:
+        return "status"
+
+    @pytest.fixture
+    def request_func(self):
+        return urllib3.request
 
     @pytest.mark.network_replay
-    def test_multipart_post(self):
-        response = self.make_request(
+    def test_multipart_post(self, request_func, status_code_property):
+        response = request_func(
             "POST", f"{HTTPBIN}/anything", fields={"file": ("test.txt", "test")}
         )
-        assert getattr(response, self.status_code_property) == HTTPStatus.OK
+        assert getattr(response, status_code_property) == HTTPStatus.OK

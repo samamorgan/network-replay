@@ -24,7 +24,7 @@ def recording_dir() -> str:
 
 
 @pytest.fixture
-def replay_recording_path(request: pytest.FixtureRequest, recording_dir: str) -> Path:
+def recording_path(request: pytest.FixtureRequest, recording_dir: str) -> Path:
     """Path to the recording."""
     test_name = request.node.name
     if request.cls:
@@ -34,53 +34,53 @@ def replay_recording_path(request: pytest.FixtureRequest, recording_dir: str) ->
 
 
 @pytest.fixture
-def replay_record_on_error() -> bool:
+def record_on_error() -> bool:
     return False
 
 
 @pytest.fixture
-def replay_filter_headers() -> tuple:
-    return ()
+def filter_headers() -> dict[str, str | None]:
+    return {}
 
 
 @pytest.fixture
-def replay_filter_querystring() -> tuple:
-    return ()
+def filter_querystring() -> dict[str, str | None]:
+    return {}
 
 
 @pytest.fixture
-def replay_filter_uri() -> tuple:
-    return ()
+def filter_uri() -> dict[str, str | None]:
+    return {}
 
 
 @pytest.fixture
-def replay_serializer() -> type[JSONSerializer]:
+def serializer() -> type[JSONSerializer]:
     return JSONSerializer
 
 
 @pytest.fixture
-def replay_record_mode() -> str:
+def record_mode() -> str:
     return "once"
 
 
 @pytest.fixture
 def replay_config(
-    replay_recording_path: Path,
-    replay_record_on_error: bool,
-    replay_filter_headers: tuple,
-    replay_filter_querystring: tuple,
-    replay_filter_uri: tuple,
-    replay_serializer: Serializer,
-    replay_record_mode: str,
+    recording_path: Path,
+    record_on_error: bool,
+    filter_headers: tuple,
+    filter_querystring: tuple,
+    filter_uri: tuple,
+    serializer: Serializer,
+    record_mode: str,
 ) -> dict:
     return {
-        "path": replay_recording_path,
-        "record_on_error": replay_record_on_error,
-        "filter_headers": replay_filter_headers,
-        "filter_querystring": replay_filter_querystring,
-        "filter_uri": replay_filter_uri,
-        "serializer": replay_serializer,
-        "record_mode": replay_record_mode,
+        "path": recording_path,
+        "record_on_error": record_on_error,
+        "filter_headers": filter_headers,
+        "filter_querystring": filter_querystring,
+        "filter_uri": filter_uri,
+        "serializer": serializer,
+        "record_mode": record_mode,
     }
 
 

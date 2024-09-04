@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import logging
 import re
@@ -5,11 +7,11 @@ from ast import literal_eval
 from enum import Enum
 from functools import wraps
 from pathlib import Path
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 from urllib.request import Request, urlopen
 
-from httpretty.core import (
+from httpretty.core import (  # type: ignore
     MULTILINE_ANY_REGEX,
     SOCKET_GLOBAL_DEFAULT_TIMEOUT,
     URIInfo,
@@ -21,20 +23,33 @@ from .exceptions import RecordingDisabledError
 from .filters import _filter_headers, _filter_querystring, _filter_uri
 from .serializers import JSONSerializer
 
+if TYPE_CHECKING:
+    from http.client import HTTPMessage
+    from re import Pattern
+    from typing import Any
+
+    from httpretty.core import Entry, HTTPrettyRequest
+
+    from .serializers import Serializer
+
+
 logger = logging.getLogger(__name__)
 
 
 def replay(
-    func: Callable | None = None, *, directory="recordings", **manager_kwargs
-) -> Callable:
-    def inner(func: Callable):
+    func: Callable[..., Any] | None = None,
+    *,
+    directory: str = "recordings",
+    **manager_kwargs: Any,
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    def inner(func: Callable[..., Any]) -> Callable[..., Any]:
         path = _recording_path(func, directory)
 
         nonlocal manager_kwargs
         manager_kwargs = {"path": path, **manager_kwargs}
 
         @wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             with ReplayManager(**manager_kwargs) as _:
                 return func(*args, **kwargs)
 
@@ -45,7 +60,7 @@ def replay(
     return inner
 
 
-def _recording_path(func, subdir) -> Path:
+def _recording_path(func: Callable[..., Any], subdir: str) -> Path:
     qualname_split = func.__qualname__.split(".")
     try:
         split_index = qualname_split.index("<locals>") + 1
@@ -69,16 +84,16 @@ class RecordMode(Enum):
     """Recording off, replay on, raise an error on new requests."""
 
 
-class ReplayManager(httpretty):
+class ReplayManager(httpretty):  # type: ignore
     def __init__(
         self,
         path: Path | str,
         record_on_error: bool = False,
-        filter_headers: list | tuple = (),
-        filter_querystring: list | tuple = (),
-        filter_uri: list | tuple = (),
-        serializer: Callable = JSONSerializer,
-        record_mode: str = "once",
+        filter_headers: dict[str, str | None] = {},
+        filter_querystring: dict[str, str | None] = {},
+        filter_uri: dict[str, str | None] = {},
+        serializer: type[Serializer] = JSONSerializer,
+        record_mode: RecordMode = RecordMode.ONCE,
     ):
         self.record_on_error = record_on_error
         self.filter_headers = filter_headers
@@ -87,12 +102,12 @@ class ReplayManager(httpretty):
         self.serializer = serializer(Path(path).resolve())
         self.record_mode = RecordMode(record_mode)
 
-        self._cycle_sequence: list[dict] = []
+        self._cycle_sequence: list[dict[str, Any]] = []
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"<{self.__class__.__name__} with {len(self._entries)} URI entries>"
 
-    def __enter__(self):
+    def __enter__(self) -> ReplayManager:
         self.reset()
 
         if self.recording_exists:
@@ -110,7 +125,7 @@ class ReplayManager(httpretty):
 
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, exc_type: Any, exc_value: Any, traceback: Any) -> None:
         self.disable()
         self.reset()
 
@@ -155,17 +170,17 @@ class ReplayManager(httpretty):
 
     def register_uri(
         self,
-        method,
-        uri,
-        body='{"message": "ReplayManager :)"}',
-        adding_headers=None,
-        forcing_headers=None,
-        status=200,
-        responses=None,
-        match_querystring=False,
-        priority=0,
-        **headers,
-    ):
+        method: str,
+        uri: str,
+        body: str = '{"message": "ReplayManager :)"}',
+        adding_headers: dict[str, Any] | None = None,
+        forcing_headers: dict[str, Any] | None = None,
+        status: int = 200,
+        responses: list[Entry] | None = None,
+        match_querystring: bool = False,
+        priority: int = 0,
+        **headers: Any,
+    ) -> None:
         """Override of `httpretty.core.register_uri` to support alternative filtering."""
         uri_is_string = isinstance(uri, str)
 
@@ -201,7 +216,7 @@ class ReplayManager(httpretty):
 
         self._entries[matcher] = entries_for_this_uri
 
-    def _register_recorded_requests(self):
+    def _register_recorded_requests(self) -> None:
         """Register recorded requests for playback.
 
         Since serializing responses modifies the original response length, we need to
@@ -214,25 +229,20 @@ class ReplayManager(httpretty):
             if body.startswith("b'"):
                 body = literal_eval(body)
 
-            response_headers = item["response"]["headers"]
-            # if "Content-Length" in response_headers:
-            #     response_headers["Content-Length"] = str(len(body))
-
             self.register_uri(
                 method=item["request"]["method"],
-                # uri=self._generate_uri_regex(
-                #     item["request"]["uri"], item["request"]["querystring"]
-                # ),
                 uri=self._add_querystring(
                     item["request"]["uri"], item["request"]["querystring"]
                 ),
                 body=body,
-                forcing_headers=response_headers,
+                forcing_headers=item["response"]["headers"],
                 status=item["response"]["status"],
                 match_querystring=True,
             )
 
-    def _record_request(self, request, uri, headers):
+    def _record_request(
+        self, request: HTTPrettyRequest, uri: str, headers: dict[str, Any]
+    ) -> tuple[int, HTTPMessage, bytes]:
         if not self.can_record:
             raise RecordingDisabledError(
                 f"Recording is disabled with {self.record_mode}"
@@ -253,7 +263,7 @@ class ReplayManager(httpretty):
         decoded_response_body = self._decode_body(response_body)
 
         request_dict = {
-            "uri": _filter_uri(self._remove_querystring(uri), self.filter_uri),
+            "uri": _filter_uri(uri, self.filter_uri),
             "method": request.method,
             "headers": _filter_headers(dict(request.headers), self.filter_headers),
             "body": self._decode_body(request.body),
@@ -285,12 +295,7 @@ class ReplayManager(httpretty):
 
         return response.status, response.headers, response_body
 
-    def _remove_querystring(self, uri):
-        scheme, netloc, path, params, _, fragment = urlparse(uri)
-
-        return urlunparse((scheme, netloc, path, params, "", fragment))
-
-    def _add_querystring(self, uri, querystring):
+    def _add_querystring(self, uri: str, querystring: dict[str, Any]) -> str:
         scheme, netloc, path, params, query, fragment = urlparse(uri)
         combined_query = urlencode({**parse_qs(query), **querystring}, doseq=True)
 
@@ -309,7 +314,7 @@ class ReplayManager(httpretty):
 
         return decoded_body
 
-    def _calculate_body_length(self, body: str | dict) -> str | None:
+    def _calculate_body_length(self, body: str | dict[str, Any]) -> str | None:
         """Calculate the body length for a response.
 
         Args:
@@ -324,37 +329,53 @@ class ReplayManager(httpretty):
         return str(len(str(body)))
 
 
-class ReplayURIMatcher(URIMatcher):
+class ReplayURIMatcher(URIMatcher):  # type: ignore
+    regex: Pattern[str] | None
+    info: URIInfo | None
+
     def __init__(
         self,
-        uri,
-        entries,
-        match_querystring=False,
-        priority=0,
-        filter_uri=(),
-        filter_querystring=(),
+        uri: str,
+        entries: list[Entry],
+        match_querystring: bool = False,
+        priority: int = 0,
+        filter_uri: dict[str, str | None] = {},
+        filter_querystring: dict[str, str | None] = {},
     ):
         super().__init__(uri, entries, match_querystring, priority)
 
         self.filter_uri = filter_uri
         self.filter_querystring = filter_querystring
 
-    def matches(self, info):
+    def matches(self, info: URIInfo) -> bool:
         if self.info:
             return self.info_matches(info) and self.query_matches(info)
-        return self.regex.search(info.full_url(use_querystring=self._match_querystring))
 
-    def info_matches(self, info):
+        if self.regex:
+            if self.regex.search(
+                info.full_url(use_querystring=self._match_querystring)
+            ):
+                return True
+
+        return False
+
+    def info_matches(self, info: URIInfo) -> bool:
         filtered_uri = _filter_uri(info.full_url(), self.filter_uri)
 
-        return URIInfo.from_uri(filtered_uri, info.last_request) == self.info
+        if URIInfo.from_uri(filtered_uri, info.last_request) == self.info:
+            return True
 
-    def query_matches(self, info):
+        return False
+
+    def query_matches(self, info: URIInfo) -> bool:
         if not self._match_querystring:
             return True
 
-        filtered_query = urlencode(
-            _filter_querystring(info.query, self.filter_querystring), doseq=True
-        )
+        if self.info:
+            filtered_query = urlencode(
+                _filter_querystring(info.query, self.filter_querystring), doseq=True
+            )
+            if self.info.query == filtered_query:
+                return True
 
-        return self.info.query == filtered_query
+        return False

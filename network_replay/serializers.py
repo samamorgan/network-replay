@@ -8,11 +8,12 @@ import yaml
 try:
     from yaml import CDumper as Dumper
     from yaml import CLoader as Loader
-except ImportError:
-    from yaml import Dumper, Loader
+except ImportError:  # pragma: no cover
+    from yaml import Dumper, Loader  # type: ignore
 
 if TYPE_CHECKING:
     from pathlib import Path
+    from typing import Any
 
 
 class Serializer:
@@ -23,12 +24,12 @@ class Serializer:
 
         self.path.parent.mkdir(exist_ok=True)
 
-    def serialize(self, obj):
+    def serialize(self, obj: list[dict[str, Any]]) -> None:
         raise NotImplementedError(
             "This method must be overridden by subclasses"
         )  # pragma: no cover
 
-    def deserialize(self):
+    def deserialize(self) -> Any:
         raise NotImplementedError(
             "This method must be overridden by subclasses"
         )  # pragma: no cover
@@ -37,18 +38,18 @@ class Serializer:
 class JSONSerializer(Serializer):
     suffix = ".json"
 
-    def serialize(self, obj) -> None:
+    def serialize(self, obj: list[dict[str, Any]]) -> None:
         return json.dump(obj, self.path.open(mode="w"), indent=2)
 
-    def deserialize(self) -> list[dict]:
+    def deserialize(self) -> Any:
         return json.load(self.path.open())
 
 
 class YAMLSerializer(Serializer):
     suffix = ".yaml"
 
-    def serialize(self, obj) -> None:
+    def serialize(self, obj: list[dict[str, Any]]) -> None:
         return yaml.dump(obj, self.path.open(mode="w"), Dumper=Dumper)
 
-    def deserialize(self) -> list[dict]:
+    def deserialize(self) -> Any:
         return yaml.load(self.path.open(), Loader=Loader)
