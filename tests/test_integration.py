@@ -39,6 +39,10 @@ class BaseClientTest:
         return {}
 
     @pytest.fixture
+    def multipart_post_kwargs(self) -> dict[str, dict[str, tuple[str, str]]]:
+        return {"files": {"file": ("test.txt", "test")}}
+
+    @pytest.fixture
     def request_func(self) -> GenericCallable:
         raise NotImplementedError("This method must be overridden by subclasses")
 
@@ -123,11 +127,12 @@ class BaseClientTest:
 
     @pytest.mark.network_replay
     def test_multipart_post(
-        self, request_func: GenericCallable, status_code_property: str
+        self,
+        request_func: GenericCallable,
+        status_code_property: str,
+        multipart_post_kwargs: dict[str, dict[str, tuple[str, str]]],
     ) -> None:
-        response = request_func(
-            "POST", f"{HTTPBIN}/anything", files={"file": ("test.txt", "test")}
-        )
+        response = request_func("POST", f"{HTTPBIN}/anything", **multipart_post_kwargs)
         assert getattr(response, status_code_property) == HTTPStatus.OK
 
 
@@ -167,29 +172,27 @@ class TestUrllib(BaseClientTest):
 
     @pytest.mark.skip(reason="Don't feel like figuring out the correct logic")
     def test_multipart_post(
-        self, request_func: GenericCallable, status_code_property: str
+        self,
+        request_func: GenericCallable,
+        status_code_property: str,
+        multipart_post_kwargs: dict[str, dict[str, tuple[str, str]]],
     ) -> None:
         pass
 
 
 class TestUrllib3(BaseClientTest):
     @pytest.fixture
-    def image_get_kwargs(self) -> dict[str, bool]:
-        return {"preload_content": False}
-
-    @pytest.fixture
     def status_code_property(self) -> str:
         return "status"
 
     @pytest.fixture
+    def image_get_kwargs(self) -> dict[str, bool]:
+        return {"preload_content": False}
+
+    @pytest.fixture
+    def multipart_post_kwargs(self) -> dict[str, dict[str, tuple[str, str]]]:
+        return {"fields": {"file": ("test.txt", "test")}}
+
+    @pytest.fixture
     def request_func(self) -> GenericCallable:
         return urllib3.request
-
-    @pytest.mark.network_replay
-    def test_multipart_post(
-        self, request_func: GenericCallable, status_code_property: str
-    ) -> None:
-        response = request_func(
-            "POST", f"{HTTPBIN}/anything", fields={"file": ("test.txt", "test")}
-        )
-        assert getattr(response, status_code_property) == HTTPStatus.OK
