@@ -7,10 +7,10 @@ from urllib.parse import parse_qs, urlparse, urlunparse
 if TYPE_CHECKING:
     from typing import Any
 
+    from .types import Filter, Headers
 
-def _filter_headers(
-    headers: dict[str, str], _filter: dict[str, str | None]
-) -> dict[str, str]:
+
+def _filter_headers(headers: Headers, _filter: Filter) -> Headers:
     headers = dict(headers)
 
     for i, replacement in _filter.items():
@@ -26,7 +26,7 @@ def _filter_headers(
 
 
 def _filter_querystring(
-    querystring: dict[str, Any] | str, _filter: dict[str, str | None]
+    querystring: dict[str, Any] | str, _filter: Filter
 ) -> dict[str, Any]:
     if isinstance(querystring, str):
         querystring = dict(parse_qs(querystring))
@@ -49,7 +49,7 @@ def _remove_querystring(uri: str) -> str:
     return urlunparse((scheme, netloc, path, params, "", fragment))
 
 
-def _filter_uri(uri: str, _filter: dict[str, str | None]) -> str:
+def _filter_uri(uri: str, _filter: Filter) -> str:
     uri = _remove_querystring(uri)
 
     for i, replacement in _filter.items():

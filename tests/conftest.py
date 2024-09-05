@@ -1,15 +1,19 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Generator
+from typing import TYPE_CHECKING
 
 import pytest
 
 from network_replay import ReplayManager
+from network_replay.core import RecordMode
 from network_replay.serializers import JSONSerializer
 
 if TYPE_CHECKING:
+    from typing import Iterator
+
     from network_replay.serializers import Serializer
+    from network_replay.types import Filter, ReplayConfig
 
 
 @pytest.fixture(autouse=True)
@@ -39,17 +43,17 @@ def record_on_error() -> bool:
 
 
 @pytest.fixture
-def filter_headers() -> dict[str, str | None]:
+def filter_headers() -> Filter:
     return {}
 
 
 @pytest.fixture
-def filter_querystring() -> dict[str, str | None]:
+def filter_querystring() -> Filter:
     return {}
 
 
 @pytest.fixture
-def filter_uri() -> dict[str, str | None]:
+def filter_uri() -> Filter:
     return {}
 
 
@@ -59,20 +63,20 @@ def serializer() -> type[JSONSerializer]:
 
 
 @pytest.fixture
-def record_mode() -> str:
-    return "once"
+def record_mode() -> RecordMode:
+    return RecordMode.ONCE
 
 
 @pytest.fixture
 def replay_config(
     recording_path: Path,
     record_on_error: bool,
-    filter_headers: tuple,
-    filter_querystring: tuple,
-    filter_uri: tuple,
-    serializer: Serializer,
-    record_mode: str,
-) -> dict:
+    filter_headers: Filter,
+    filter_querystring: Filter,
+    filter_uri: Filter,
+    serializer: type[Serializer],
+    record_mode: RecordMode,
+) -> ReplayConfig:
     return {
         "path": recording_path,
         "record_on_error": record_on_error,
@@ -86,7 +90,7 @@ def replay_config(
 
 @pytest.fixture
 def _replay_manager(
-    replay_config: dict, request: pytest.FixtureRequest
+    replay_config: ReplayConfig, request: pytest.FixtureRequest
 ) -> ReplayManager:
     replay_marker = request.node.get_closest_marker("network_replay")
     if replay_marker:
@@ -98,11 +102,11 @@ def _replay_manager(
 @pytest.fixture
 def replay_manager(
     _replay_manager: ReplayManager,
-) -> Generator[ReplayManager, None, None]:
+) -> Iterator[ReplayManager]:
     with _replay_manager as manager:
         yield manager
 
-    if manager._cycle_sequence:
+    if manager._transactions:
         try:
             manager.path.resolve(strict=True)
         except FileNotFoundError as exc:

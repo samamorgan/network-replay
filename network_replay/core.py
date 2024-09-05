@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any, Callable
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 from urllib.request import Request, urlopen
 
-from httpretty.core import (  # type: ignore
+from httpretty.core import (  # type: ignore[import-untyped]
     MULTILINE_ANY_REGEX,
     SOCKET_GLOBAL_DEFAULT_TIMEOUT,
     URIInfo,
@@ -24,25 +24,35 @@ from .filters import _filter_headers, _filter_querystring, _filter_uri
 from .serializers import JSONSerializer
 
 if TYPE_CHECKING:
-    from http.client import HTTPMessage
     from re import Pattern
-    from typing import Any
+    from typing import Any, Optional, Union
 
     from httpretty.core import Entry, HTTPrettyRequest
 
     from .serializers import Serializer
+    from .types import (
+        Body,
+        CallableBody,
+        Filter,
+        GenericCallable,
+        Headers,
+        RequestDict,
+        ResponseDict,
+        ResponseInfo,
+        Transactions,
+    )
 
 
 logger = logging.getLogger(__name__)
 
 
 def replay(
-    func: Callable[..., Any] | None = None,
+    func: Optional[GenericCallable] = None,
     *,
     directory: str = "recordings",
     **manager_kwargs: Any,
-) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-    def inner(func: Callable[..., Any]) -> Callable[..., Any]:
+) -> Callable[[GenericCallable], GenericCallable]:
+    def inner(func: GenericCallable) -> GenericCallable:
         path = _recording_path(func, directory)
 
         nonlocal manager_kwargs
@@ -60,7 +70,7 @@ def replay(
     return inner
 
 
-def _recording_path(func: Callable[..., Any], subdir: str) -> Path:
+def _recording_path(func: GenericCallable, subdir: str) -> Path:
     qualname_split = func.__qualname__.split(".")
     try:
         split_index = qualname_split.index("<locals>") + 1
@@ -84,16 +94,16 @@ class RecordMode(Enum):
     """Recording off, replay on, raise an error on new requests."""
 
 
-class ReplayManager(httpretty):  # type: ignore
+class ReplayManager(httpretty):  # type: ignore[misc]
     def __init__(
         self,
-        path: Path | str,
+        path: Union[Path, str],
         record_on_error: bool = False,
-        filter_headers: dict[str, str | None] = {},
-        filter_querystring: dict[str, str | None] = {},
-        filter_uri: dict[str, str | None] = {},
+        filter_headers: Filter = {},
+        filter_querystring: Filter = {},
+        filter_uri: Filter = {},
         serializer: type[Serializer] = JSONSerializer,
-        record_mode: RecordMode = RecordMode.ONCE,
+        record_mode: Union[str, RecordMode] = RecordMode.ONCE,
     ):
         self.record_on_error = record_on_error
         self.filter_headers = filter_headers
@@ -102,7 +112,7 @@ class ReplayManager(httpretty):  # type: ignore
         self.serializer = serializer(Path(path).resolve())
         self.record_mode = RecordMode(record_mode)
 
-        self._cycle_sequence: list[dict[str, Any]] = []
+        self._transactions: Transactions = []
 
     def __str__(self) -> str:
         return f"<{self.__class__.__name__} with {len(self._entries)} URI entries>"
@@ -142,7 +152,7 @@ class ReplayManager(httpretty):  # type: ignore
             return
 
         logger.debug(f"Writing interactions to {self.path}")
-        self.serializer.serialize(self._cycle_sequence)
+        self.serializer.serialize(self._transactions)
 
     @property
     def can_replay(self) -> bool:
@@ -172,11 +182,11 @@ class ReplayManager(httpretty):  # type: ignore
         self,
         method: str,
         uri: str,
-        body: str = '{"message": "ReplayManager :)"}',
-        adding_headers: dict[str, Any] | None = None,
-        forcing_headers: dict[str, Any] | None = None,
+        body: Union[str, CallableBody] = '{"message": "ReplayManager :)"}',
+        adding_headers: Optional[Headers] = None,
+        forcing_headers: Optional[Headers] = None,
         status: int = 200,
-        responses: list[Entry] | None = None,
+        responses: Optional[list[Entry]] = None,
         match_querystring: bool = False,
         priority: int = 0,
         **headers: Any,
@@ -222,9 +232,9 @@ class ReplayManager(httpretty):  # type: ignore
         Since serializing responses modifies the original response length, we need to
         dynamically calculate the Content-Length header to pass httpretty's validation.
         """
-        self._cycle_sequence = self.serializer.deserialize()
+        self._transactions = self.serializer.deserialize()
 
-        for item in self._cycle_sequence:
+        for item in self._transactions:
             body = str(item["response"]["body"])
             if body.startswith("b'"):
                 body = literal_eval(body)
@@ -241,8 +251,8 @@ class ReplayManager(httpretty):  # type: ignore
             )
 
     def _record_request(
-        self, request: HTTPrettyRequest, uri: str, headers: dict[str, Any]
-    ) -> tuple[int, HTTPMessage, bytes]:
+        self, request: HTTPrettyRequest, uri: str, headers: Headers
+    ) -> ResponseInfo:
         if not self.can_record:
             raise RecordingDisabledError(
                 f"Recording is disabled with {self.record_mode}"
@@ -262,7 +272,7 @@ class ReplayManager(httpretty):  # type: ignore
         response_body = response.read()
         decoded_response_body = self._decode_body(response_body)
 
-        request_dict = {
+        request_dict: RequestDict = {
             "uri": _filter_uri(uri, self.filter_uri),
             "method": request.method,
             "headers": _filter_headers(dict(request.headers), self.filter_headers),
@@ -271,7 +281,7 @@ class ReplayManager(httpretty):  # type: ignore
                 request.querystring, self.filter_querystring
             ),
         }
-        response_dict = {
+        response_dict: ResponseDict = {
             "status": response.status,
             "body": decoded_response_body,
             "headers": _filter_headers(dict(response.headers), self.filter_headers),
@@ -284,7 +294,7 @@ class ReplayManager(httpretty):  # type: ignore
             if body_length is not None:
                 response_dict["headers"]["Content-Length"] = body_length
 
-        self._cycle_sequence.append(
+        self._transactions.append(
             {
                 "request": request_dict,
                 "response": response_dict,
@@ -295,26 +305,26 @@ class ReplayManager(httpretty):  # type: ignore
 
         return response.status, response.headers, response_body
 
-    def _add_querystring(self, uri: str, querystring: dict[str, Any]) -> str:
+    def _add_querystring(self, uri: str, querystring: dict[str, str]) -> str:
         scheme, netloc, path, params, query, fragment = urlparse(uri)
         combined_query = urlencode({**parse_qs(query), **querystring}, doseq=True)
 
         return urlunparse((scheme, netloc, path, params, combined_query, fragment))
 
-    def _decode_body(self, body: bytes) -> str | Any:
+    def _decode_body(self, body: bytes) -> Body:
         try:
             decoded_body = body.decode()
         except UnicodeDecodeError:
             decoded_body = str(body)
 
         try:
-            return json.loads(decoded_body)
+            return json.loads(decoded_body)  # type: ignore[no-any-return]
         except json.JSONDecodeError:
             pass
 
         return decoded_body
 
-    def _calculate_body_length(self, body: str | dict[str, Any]) -> str | None:
+    def _calculate_body_length(self, body: Body) -> str | None:
         """Calculate the body length for a response.
 
         Args:
@@ -329,7 +339,7 @@ class ReplayManager(httpretty):  # type: ignore
         return str(len(str(body)))
 
 
-class ReplayURIMatcher(URIMatcher):  # type: ignore
+class ReplayURIMatcher(URIMatcher):  # type: ignore[misc]
     regex: Pattern[str] | None
     info: URIInfo | None
 
@@ -339,8 +349,8 @@ class ReplayURIMatcher(URIMatcher):  # type: ignore
         entries: list[Entry],
         match_querystring: bool = False,
         priority: int = 0,
-        filter_uri: dict[str, str | None] = {},
-        filter_querystring: dict[str, str | None] = {},
+        filter_uri: Filter = {},
+        filter_querystring: Filter = {},
     ):
         super().__init__(uri, entries, match_querystring, priority)
 
