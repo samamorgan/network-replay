@@ -7,7 +7,7 @@ from urllib.parse import parse_qs, urlparse, urlunparse
 if TYPE_CHECKING:
     from typing import Any
 
-    from .types import Filter, Headers
+    from .types import Filter, Headers, Replacement
 
 
 def _filter_headers(headers: Headers, _filter: Filter) -> Headers:
@@ -17,10 +17,11 @@ def _filter_headers(headers: Headers, _filter: Filter) -> Headers:
         if i not in headers:
             continue
 
-        if replacement is None:
+        new_value = _replace(headers[i], replacement)
+        if new_value is None:
             del headers[i]
         else:
-            headers[i] = replacement
+            headers[i] = new_value
 
     return headers
 
@@ -38,15 +39,9 @@ def _filter_querystring(
         if replacement is None:
             del querystring[i]
         else:
-            querystring[i] = replacement
+            querystring[i] = [_replace(v, replacement) for v in querystring[i]]
 
     return querystring
-
-
-def _remove_querystring(uri: str) -> str:
-    scheme, netloc, path, params, _, fragment = urlparse(uri)
-
-    return urlunparse((scheme, netloc, path, params, "", fragment))
 
 
 def _filter_uri(uri: str, _filter: Filter) -> str:
@@ -56,12 +51,22 @@ def _filter_uri(uri: str, _filter: Filter) -> str:
         if i not in uri:
             continue
 
-        if replacement is None:
-            uri = uri.replace(i, "")
-        else:
-            uri = uri.replace(i, replacement)
+        new_value = _replace(uri, replacement) or ""
+        uri = uri.replace(i, new_value)
 
     if re.search(r"^\w+://[^/]+[.]\w{2,}(:[0-9]+)?$", uri):
         uri += "/"
 
     return uri
+
+
+def _remove_querystring(uri: str) -> str:
+    scheme, netloc, path, params, _, fragment = urlparse(uri)
+
+    return urlunparse((scheme, netloc, path, params, "", fragment))
+
+
+def _replace(obj: Any, replacement: Replacement):
+    if callable(replacement):
+        return replacement(obj)
+    return replacement

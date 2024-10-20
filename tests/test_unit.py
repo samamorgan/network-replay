@@ -14,7 +14,13 @@ from httpretty.core import HTTPrettyRequest, fakesock  # type: ignore[import-unt
 from network_replay import ReplayManager, replay
 from network_replay.core import RecordMode, _recording_path
 from network_replay.exceptions import RecordingDisabledError
-from network_replay.filters import _filter_headers, _filter_querystring, _filter_uri
+from network_replay.filters import (
+    _filter_headers,
+    _filter_querystring,
+    _filter_uri,
+    _remove_querystring,
+    _replace,
+)
 from network_replay.serializers import JSONSerializer, YAMLSerializer
 
 if TYPE_CHECKING:
@@ -266,7 +272,9 @@ class TestReplayURIMatcher:
 
 class TestFilters:
     def test__filter_headers(self, mock_request: HTTPrettyRequest) -> None:
+        assert "Accept" in mock_request.headers
         assert "User-Agent" in mock_request.headers
+        assert "Content-Type" not in mock_request.headers
 
         _filter = {"User-Agent": None, "Accept": "REDACTED", "Content-Type": None}
         filtered_headers = _filter_headers(mock_request.headers, _filter)
@@ -275,11 +283,13 @@ class TestFilters:
 
     def test__filter_querystring(self, mock_request: HTTPrettyRequest) -> None:
         assert "foo" in mock_request.querystring
+        assert "bar" in mock_request.querystring
+        assert "baz" not in mock_request.querystring
 
         _filter = {"foo": None, "bar": "REDACTED", "baz": None}
         filtered_querystring = _filter_querystring(mock_request.querystring, _filter)
         assert "foo" not in filtered_querystring
-        assert filtered_querystring["bar"] == _filter["bar"]
+        assert filtered_querystring["bar"] == [_filter["bar"]]
 
     def test__filter_uri(self, mock_request: HTTPrettyRequest) -> None:
         _filter = {"bin": None, "org": "com", "baz": None}
@@ -288,6 +298,18 @@ class TestFilters:
         assert "org" not in filtered_uri
         assert "com" in filtered_uri
         assert filtered_uri.endswith("/")
+
+    def test__remove_querystring(self) -> None:
+        uri = "https://example.org?foo=bar"
+        assert "?" in uri
+
+        uri = _remove_querystring(uri)
+        assert uri == "https://example.org"
+
+    def test__replace(self) -> None:
+        assert _replace("test", None) is None
+        assert _replace("test", "REDACTED") == "REDACTED"
+        assert _replace("test", lambda x: x.upper()) == "TEST"
 
 
 class SerializerTestBase:

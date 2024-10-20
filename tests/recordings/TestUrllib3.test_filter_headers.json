@@ -4,8 +4,8 @@
       "uri": "https://httpbin.org/get",
       "method": "GET",
       "headers": {
-        "Host": "httpbin.org",
-        "Accept-Encoding": "identity"
+        "Accept-Encoding": "identity",
+        "User-Agent": "python-network-replay/2.2.2"
       },
       "body": "",
       "querystring": {}
@@ -17,16 +17,16 @@
         "headers": {
           "Accept-Encoding": "identity",
           "Host": "httpbin.org",
-          "User-Agent": "python-urllib3/2.1.0",
-          "X-Amzn-Trace-Id": "Root=1-65a0881a-7353e7126f0bb22f29acbb10"
+          "User-Agent": "python-urllib3/2.2.2",
+          "X-Amzn-Trace-Id": "Root=1-67157da8-5b1012ba3bd1511c66202e1d"
         },
-        "origin": "97.126.147.157",
+        "origin": "71.212.2.220",
         "url": "https://httpbin.org/get"
       },
       "headers": {
-        "Date": "Fri, 12 Jan 2024 00:30:18 GMT",
-        "Content-Type": "REDACTED",
-        "Content-Length": "242",
+        "Date": "Sun, 20 Oct 2024 22:01:12 GMT",
+        "Content-Type": "application/foo",
+        "Content-Length": "240",
         "Connection": "close",
         "Server": "gunicorn/19.9.0",
         "Access-Control-Allow-Origin": "*",

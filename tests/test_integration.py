@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from http import HTTPStatus
 from typing import TYPE_CHECKING
 from urllib.request import Request, urlopen
@@ -67,7 +68,13 @@ class BaseClientTest:
         assert getattr(response, status_code_property) == HTTPStatus.OK
 
     @pytest.mark.network_replay(
-        filter_headers={"User-Agent": None, "Content-Type": "REDACTED"}
+        filter_headers={
+            "Content-Type": "application/foo",
+            "Host": None,
+            "User-Agent": lambda x: re.sub(
+                r"(python-).*(\/.*)", r"\1network-replay\2", x, flags=re.IGNORECASE
+            ).lower(),
+        }
     )
     def test_filter_headers(
         self,
@@ -79,24 +86,35 @@ class BaseClientTest:
         assert getattr(response, status_code_property) == HTTPStatus.OK
 
         request = replay_manager._transactions[0]["request"]
-        assert "User-Agent" not in request["headers"]
+        assert "Host" not in request["headers"]
+        assert request["headers"]["User-Agent"].startswith("python-network-replay/")
 
         response = replay_manager._transactions[0]["response"]
-        assert response["headers"]["Content-Type"] == "REDACTED"
+        assert response["headers"]["Content-Type"] == "application/foo"
 
-    @pytest.mark.network_replay(filter_querystring={"foo": None, "bar": "REDACTED"})
+    @pytest.mark.network_replay(
+        filter_querystring={
+            "foo": None,
+            "bar": "REDACTED",
+            "baz": lambda x: re.sub(r"(reg).*", r"\1ular", x),
+        }
+    )
     def test_filter_querystring(
         self,
         request_func: GenericCallable,
         replay_manager: ReplayManager,
         status_code_property: str,
     ) -> None:
-        response = request_func("GET", f"{HTTPBIN}/response-headers?foo=1&bar=2")
+        response = request_func(
+            "GET",
+            f"{HTTPBIN}/response-headers?foo=1&bar=2&bar=3&baz=regex&baz=regression",
+        )
         assert getattr(response, status_code_property) == HTTPStatus.OK
 
         querystring = replay_manager._transactions[0]["request"]["querystring"]
         assert "foo" not in querystring
-        assert querystring["bar"] == "REDACTED"
+        assert querystring["bar"] == ["REDACTED", "REDACTED"]
+        assert querystring["baz"] == ["regular", "regular"]
 
     @pytest.mark.network_replay(filter_uri={"/get": None})
     def test_filter_uri(

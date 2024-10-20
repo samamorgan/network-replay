@@ -12,24 +12,39 @@
       },
       "body": "",
       "querystring": {
-        "bar": "REDACTED"
+        "bar": [
+          "REDACTED",
+          "REDACTED"
+        ],
+        "baz": [
+          "regular",
+          "regular"
+        ]
       }
     },
     "response": {
       "status": 200,
       "body": {
-        "Content-Length": "98",
+        "Content-Length": "167",
         "Content-Type": "application/json",
-        "bar": "2",
+        "bar": [
+          "2",
+          "3"
+        ],
+        "baz": [
+          "regex",
+          "regression"
+        ],
         "foo": "1"
       },
       "headers": {
-        "Date": "Fri, 12 Jan 2024 00:30:06 GMT",
+        "Date": "Sun, 20 Oct 2024 22:37:58 GMT",
         "Content-Type": "application/json",
-        "Content-Length": "84",
+        "Content-Length": "124",
         "Connection": "close",
         "Server": "gunicorn/19.9.0",
         "bar": "2",
+        "baz": "regex",
         "foo": "1",
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Credentials": "true"

@@ -1,5 +1,6 @@
 from http.client import HTTPMessage
 from pathlib import Path
+from re import Pattern
 from typing import Any, Callable, TypedDict, Union
 
 from httpretty.core import HTTPrettyRequest  # type: ignore[import-untyped]
@@ -8,7 +9,8 @@ from .core import RecordMode
 from .serializers import Serializer
 
 Body = Union[str, bytes, dict[str, Any], list[Any]]
-Filter = dict[str, Union[str, None]]
+Replacement = Union[str, Pattern, Callable[[Any], Any], None]
+Filter = dict[str, Replacement]
 Headers = dict[str, Union[str, None]]
 ResponseInfo = tuple[int, HTTPMessage, bytes]
 CallableBody = Callable[[HTTPrettyRequest, str, Headers], ResponseInfo]
